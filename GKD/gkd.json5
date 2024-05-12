@@ -1,10 +1,10 @@
 {
-	id: 1,
+	id: 7777777,
 	name: "Ticks的GKD订阅",
 	version: 1,
 	author: "Ticks",
 	checkUpdateUrl: "./gdk.version.json5",
-	supportUri: "https://github.com/ticks-tan/me-sub/GKD",
+	supportUri: "https://github.com/ticks-tan/me-sub/tree/main/GKD",
 	categories: [
 		{
 			key: 0,
@@ -45,8 +45,8 @@
 							key: 0,
 							name: "点击跳过",
 							matches: [
-								'FrameLayout[vid="bottom_container"] > ImageView[vid="logo_view"]',
-								'FrameLayout[vid="ad_container"] > View[clickable=true][depth=13]',
+								'FrameLayout[vid="bottom_container"]  ImageView[vid="logo_view"]',
+								'FrameLayout[vid="ad_container"]  View[clickable=true][depth=13]',
 							],
 						},
 					],
@@ -66,8 +66,8 @@
 							key: 0,
 							name: "点击关闭按钮",
 							matches: [
-								'FrameLayout[id="com.coolapk.market:id/coolapk_card_view"] > TextView[vid="title_view"][text*="广告"]',
-								'FrameLayout[id="com.coolapk.market:id/coolapk_card_view"] > ImageView[vid="close_view"][desc="关闭"]',
+								'FrameLayout[id="com.coolapk.market:id/coolapk_card_view"]  TextView[vid="title_view"][text*="广告"]',
+								'FrameLayout[id="com.coolapk.market:id/coolapk_card_view"]  ImageView[vid="close_view"][desc="关闭"]',
 							],
 						},
 						{
@@ -89,14 +89,16 @@
 					activityIds: [
 						"com.coolapk.market.view.main.MainActivity",
 						"com.coolapk.market.view.base.SimpleAlphaActivity",
+						"com.coolapk.market.view.node.DynamicNodePageActivity",
+						"com.coolapk.market.view.feed.FeedDetailActivityV8",
 					],
 					rules: [
 						{
 							key: 0,
 							name: "点击关闭按钮",
 							matches: [
-								'CardView[id="com.coolapk.market:id/coolapk_card_view"] > TextView[vid="ad_time_view"][text="来自广告推荐"]',
-								'CardView[id="com.coolapk.market:id/coolapk_card_view"] > ImageView[vid="close_view"][desc="关闭"]',
+								'CardView[id="com.coolapk.market:id/coolapk_card_view"]  TextView[vid="ad_time_view"][text="来自广告推荐"]',
+								'CardView[id="com.coolapk.market:id/coolapk_card_view"]  ImageView[vid="close_view"][desc="关闭"]',
 							],
 						},
 						{
