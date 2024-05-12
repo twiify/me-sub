@@ -31,30 +31,12 @@
 			name: "功能优化",
 		},
 	],
-	globalGroups: [
-		{
-			key: 0,
-			name: "开屏广告",
-			order: -10,
-			actionMaximumKey: 2,
-			matchTime: 8000,
-			resetMatch: "app",
-			actionCdKey: 0,
-			actionMaximumKey: 0,
-			rules: [],
-			apps: [],
-		},
-	],
+	globalGroups: [],
 	apps: [
 		{
 			id: "com.coolapk.market",
 			name: "酷安",
 			groups: [
-				{
-					key: 0,
-					name: "开屏广告-引流",
-					rules: [],
-				},
 				{
 					key: 1,
 					name: "全屏广告-引流",
