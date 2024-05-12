@@ -14,7 +14,7 @@ export default defineGkdApp({
           key: 1,
           name: '点击取消按钮',
           matches: [
-            'LinearLayout > TextView[text="发现QQ版本更新"] - TextView[text="点击下载"] - ImageView',
+            'LinearLayout > TextView[text="发现QQ版本更新"] + TextView[text="点击下载"] + ImageView',
           ],
         },
       ],
@@ -28,7 +28,7 @@ export default defineGkdApp({
           key: 1,
           name: '点击更多',
           matches: [
-            'LinearLayout > TextView[vid="k2r"][text="好友热播"] - Button[vid="jvj"]',
+            'LinearLayout > TextView[vid="k2r"][text="好友热播"] + Button[vid="jvj"]',
           ],
         },
         {
@@ -36,7 +36,7 @@ export default defineGkdApp({
           name: '点击更多后-不感兴趣',
           preKeys: [1],
           matches: [
-            'LinearLayout[vid="h0f"]  TextView[vid="hhb"][text="不感兴趣"]',
+            'LinearLayout[vid="h0f"] TextView[vid="hhb"][text="不感兴趣"]',
           ],
         },
       ],
@@ -52,7 +52,7 @@ export default defineGkdApp({
           key: 1,
           quickFind: true,
           matches: [
-            'LinearLayout[vid="jst"] > TextView[vid="p2"][text="相册"] - TextView[vid="ekt"][text="编辑"] - CheckBox[vid="h1y"][checked=false][desc="原图"]',
+            'LinearLayout[vid="jst"] > TextView[vid="p2"][text="相册"] + TextView[vid="ekt"][text="编辑"] + CheckBox[vid="h1y"][checked=false][desc="原图"]',
           ],
         },
       ],
