@@ -9,7 +9,7 @@ export default defineGkdApp({
       name: '其他广告-推荐卡片',
       desc: '自动关闭帖子列表的推荐卡片',
       enable: false,
-      activityIds: ['com.twitter.android.MainActivity'],
+      activityIds: ['com.twitter.app.main.MainActivity'],
       rules: [
         {
           key: 1,
