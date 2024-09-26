@@ -32,26 +32,68 @@ backup_ssh_config() {
   fi
 }
 
+# 函数：检查并替换 Match User 配置
+modify_match_user() {
+  SSH_CONFIG="/etc/ssh/sshd_config"
+  
+  # 查找并替换已有的 Match User 块
+  if grep -q "^Match User" "$SSH_CONFIG"; then
+    if grep -q "^Match User $USERNAME" "$SSH_CONFIG"; then
+      echo "Match User $USERNAME 已存在，不做修改。"
+    else
+      # 替换已有的 Match User 块为新用户
+      sed -i "/^Match User /,/^$/c\Match User $USERNAME\n    PasswordAuthentication yes" "$SSH_CONFIG"
+      echo "已替换为新用户 $USERNAME 的 Match User 块。"
+    fi
+  else
+    # 如果没有找到 Match User 块，则在文件末尾追加
+    echo "Match User $USERNAME" >> "$SSH_CONFIG"
+    echo "    PasswordAuthentication yes" >> "$SSH_CONFIG"
+    echo "已为 $USERNAME 追加 Match User 块。"
+  fi
+}
+
 # 函数：修改 SSH 配置
 modify_ssh_config() {
   read -p "是否要修改 SSH 配置？(y/n): " MODIFY_SSH
   if [ "$MODIFY_SSH" == "y" ]; then
     backup_ssh_config
 
-    # 禁用 root 用户的密码登录
-    sed -i 's/#*PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+    SSH_CONFIG="/etc/ssh/sshd_config"
 
-    # 确保允许普通用户使用密码登录
-    sed -i 's/#*PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    # 确保禁用 root 用户的密码登录
+    if grep -q "^PermitRootLogin" "$SSH_CONFIG"; then
+      sed -i 's/^PermitRootLogin.*/PermitRootLogin prohibit-password/' "$SSH_CONFIG"
+    else
+      echo "PermitRootLogin prohibit-password" >> "$SSH_CONFIG"
+    fi
+
+    # 全局禁用密码登录（适用于所有用户）
+    if grep -q "^PasswordAuthentication" "$SSH_CONFIG"; then
+      sed -i 's/^PasswordAuthentication.*/PasswordAuthentication no/' "$SSH_CONFIG"
+    else
+      echo "PasswordAuthentication no" >> "$SSH_CONFIG"
+    fi
 
     # 启用公钥认证
-    sed -i 's/#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+    if grep -q "^PubkeyAuthentication" "$SSH_CONFIG"; then
+      sed -i 's/^PubkeyAuthentication.*/PubkeyAuthentication yes/' "$SSH_CONFIG"
+    else
+      echo "PubkeyAuthentication yes" >> "$SSH_CONFIG"
+    fi
 
     # 修改 SSH 登录端口
     read -p "请输入新的 SSH 端口 (默认22): " SSH_PORT
     SSH_PORT=${SSH_PORT:-22}
-    sed -i "s/#Port 22/Port $SSH_PORT/" /etc/ssh/sshd_config
-    echo "SSH 配置已修改为禁用 root 密码登录，允许普通用户密码登录，启用公钥认证，使用端口 $SSH_PORT。"
+    if grep -q "^Port" "$SSH_CONFIG"; then
+      sed -i "s/^Port.*/Port $SSH_PORT/" "$SSH_CONFIG"
+    else
+      echo "Port $SSH_PORT" >> "$SSH_CONFIG"
+    fi
+    echo "SSH 配置已修改为禁用 root 密码登录，启用公钥认证，使用端口 $SSH_PORT。"
+
+    # 调用函数处理 Match User 块
+    modify_match_user
 
     # 测试 SSH 配置文件是否正确
     sshd -t
@@ -87,6 +129,8 @@ configure_ufw() {
   # 允许用户指定的端口访问
   read -p "请输入要开放的端口（可选，多个端口用逗号分隔）: " ALLOWED_PORTS
   if [ -n "$ALLOWED_PORTS" ]; then
+    # 去除前后空格并分割端口列表
+    ALLOWED_PORTS=$(echo "$ALLOWED_PORTS" | sed 's/, */,/g' | sed 's/ *, */,/g')
     IFS=',' read -ra PORTS <<< "$ALLOWED_PORTS"
     for PORT in "${PORTS[@]}"; do
       ufw allow "$PORT"
