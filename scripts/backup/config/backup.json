@@ -1,0 +1,43 @@
+
+[
+    {
+            "name": "All-Services",
+            "description": "Backup all services",
+            "cron": "0 0 * * *",
+            "exclude": [
+                    "*.log",
+                    "*cache",
+                    "**/log"
+            ],
+            "source": [
+                    "/opt/myapp",
+                    "~/.ssh"
+            ],
+            "dest": [
+                    "rclone:xxx:/Backup/all",
+                    "rclone:yyy:/Backup/all"
+            ],
+            "pwd": "changeme",
+            "savenum": 3
+    },
+    {
+            "name": "vaultwarden",
+            "description": "Backup vaultwarden",
+            "cron": "0 */1 * * *",
+            "exclude": [
+                    "*.log",
+                    "*cache",
+                    "**/log"
+            ],
+            "source": [
+                    "/opt/myapp/vaultwarden"
+            ],
+            "dest": [
+                    "rclone:xxx:/Backup/app/vaultwarden",
+                    "local:/opt/Backup/app/vaultwarden"
+            ],
+            "pwd": "changeme",
+            "savenum": 6
+    }
+
+]
