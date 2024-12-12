@@ -6,11 +6,11 @@
             "cron": "0 0 * * *",
             "exclude": [
                     "*.log",
-                    "*cache",
-                    "**/log"
+                    "*/cache/",
+                    "**/log/**"
             ],
             "source": [
-                    "/opt/myapp",
+                    "/home/xxx/myapp",
                     "~/.ssh"
             ],
             "dest": [
@@ -26,8 +26,8 @@
             "cron": "0 */1 * * *",
             "exclude": [
                     "*.log",
-                    "*cache",
-                    "**/log"
+                    "*/cache/",
+                    "*/log/*.txt"
             ],
             "source": [
                     "/opt/myapp/vaultwarden"
