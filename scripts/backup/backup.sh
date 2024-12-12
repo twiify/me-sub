@@ -244,7 +244,7 @@ do_backup() {
 
     # 执行压缩
     log "正在压缩源文件..."
-    local zip_opts="-r -7"
+    local zip_opts="-r -q -7"
     if [ "$pwd" != "null" ]; then
         zip_opts="$zip_opts -P $pwd"
     fi
