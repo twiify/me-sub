@@ -103,7 +103,7 @@ check_sources() {
 
 # 检查依赖
 check_dependencies() {
-    local deps=(jq tar rclone)
+    local deps=(jq zip rclone)
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
             log "错误: 未找到必需的程序 $dep"
@@ -128,7 +128,7 @@ cleanup_old_backups() {
     local name="$1"
     local dest="$2"
     local savenum="$3"
-    local pattern="$name-[0-9]*-[0-9]*.tar.gz"
+    local pattern="$name-[0-9]*-[0-9]*.zip"
 
     if [[ $dest == local:* ]]; then
         local dest_path="${dest#local:}"
@@ -149,7 +149,7 @@ cleanup_old_backups() {
         if [ ${#files[@]} -gt $savenum ]; then
             for ((i=$savenum; i<${#files[@]}; i++)); do
                 log "删除远程旧备份: $dest/${files[i]}"
-                rclone rm "$remote_path/${files[i]}"
+                rclone delete "$remote_path/${files[i]}"
             done
         fi
     fi
@@ -224,7 +224,7 @@ do_backup() {
     local number=1
     local backup_file
     while true; do
-        backup_file="$name-$DATE-$(printf "%03d" $number).tar.gz"
+        backup_file="$name-$DATE-$(printf "%03d" $number).zip"
         local file_exists=false
 
         # 检查所有目标位置
@@ -244,16 +244,14 @@ do_backup() {
 
     # 执行压缩
     log "正在压缩源文件..."
-    local tar_opts="-c"
-    if [ "$exclude_file" != "" ]; then
-        tar_opts="$tar_opts --exclude-from=$exclude_file"
-    fi
-
+    local zip_opts="-r -7"
     if [ "$pwd" != "null" ]; then
-        # 使用密码保护
-        tar $tar_opts -z -f - "${sources[@]}" 2>/dev/null | openssl enc -e -aes-256-cbc -k "$pwd" -out "$TEMP_DIR/$name/$backup_file"
+        zip_opts="$zip_opts -P $pwd"
+    fi
+    if [ "$exclude_file" != "" ]; then
+        zip $zip_opts "$TEMP_DIR/$name/$backup_file" ${sources[@]} -x@${exclude_file}
     else
-        tar $tar_opts -z -f "$TEMP_DIR/$name/$backup_file" "${sources[@]}" 2>/dev/null
+        zip $zip_opts "$TEMP_DIR/$name/$backup_file" ${sources[@]}
     fi
 
     if [ ! -f "$TEMP_DIR/$name/$backup_file" ]; then
