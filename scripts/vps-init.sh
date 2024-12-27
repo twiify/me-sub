@@ -1,12 +1,11 @@
 #!/bin/bash
-
 ###########################################
 # 系统配置脚本 v1.0
 # 功能：创建用户、配置SSH、设置防火墙、安装Docker
 ###########################################
 
-set -e  # 遇到错误立即退出
-set -u  # 使用未声明变量时报错
+set -e # 遇到错误立即退出
+set -u # 使用未声明变量时报错
 
 # 全局变量
 readonly SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -14,6 +13,10 @@ readonly LOG_FILE="/var/log/system_config.log"
 readonly SSH_CONFIG="/etc/ssh/sshd_config"
 readonly SSH_CONFIG_BAK="${SSH_CONFIG}.bak"
 readonly VERSION="1.0"
+
+# 声明全局变量
+username=""
+ssh_port=22
 
 # 日志函数
 log() {
@@ -39,8 +42,9 @@ check_command() {
 validate_port() {
     local port=$1
     if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
-        error_exit "无效的端口号: $port"
+        return 1
     fi
+    return 0
 }
 
 # 检查root权限
@@ -54,32 +58,32 @@ check_root() {
 create_user() {
     log "INFO" "开始创建新用户..."
     
-    local username password
-    read -p "请输入新建用户名: " username
-    
-    # 验证用户名
-    if [[ ! "$username" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
-        error_exit "无效的用户名格式"
-    fi
-    
-    if id "$username" &>/dev/null; then
-        log "WARN" "用户 $username 已存在"
-        return
-    fi
-    
+    while true; do
+        read -p "请输入新建用户名: " username
+        # 验证用户名
+        if [[ ! "$username" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+            log "WARN" "无效的用户名格式,请重新输入"
+            continue
+        fi
+        if id "$username" &>/dev/null; then
+            log "WARN" "用户 $username 已存在"
+            return
+        fi
+        break
+    done
+
     # 使用更安全的密码输入方式
     while true; do
         read -s -p "请输入密码: " password
         echo
         read -s -p "请确认密码: " password2
         echo
-        
         if [ "$password" = "$password2" ]; then
             break
         fi
         log "WARN" "密码不匹配,请重新输入"
     done
-    
+
     if useradd -m -s /bin/bash "$username"; then
         echo "$username:$password" | chpasswd
         log "INFO" "用户 $username 创建成功"
@@ -91,7 +95,6 @@ create_user() {
 # 备份SSH配置
 backup_ssh_config() {
     log "INFO" "备份SSH配置文件..."
-    
     if [ -f "$SSH_CONFIG" ]; then
         cp "$SSH_CONFIG" "$SSH_CONFIG_BAK" || error_exit "备份SSH配置失败"
         log "INFO" "SSH配置已备份至 $SSH_CONFIG_BAK"
@@ -105,16 +108,13 @@ modify_match_user() {
     local username=$1
     log "INFO" "修改Match User配置..."
     
-    if grep -q "^Match User" "$SSH_CONFIG"; then
-        if grep -q "^Match User $username" "$SSH_CONFIG"; then
-            log "INFO" "Match User $username 已存在"
-            return
-        fi
-        sed -i "/^Match User /,/^$/c\Match User $username\n    PasswordAuthentication yes" "$SSH_CONFIG"
+    if ! grep -q "^Match User" "$SSH_CONFIG"; then
+        echo -e "\nMatch User $username\n PasswordAuthentication yes" >> "$SSH_CONFIG"
     else
-        echo -e "\nMatch User $username\n    PasswordAuthentication yes" >> "$SSH_CONFIG"
+        if ! grep -q "^Match User $username" "$SSH_CONFIG"; then
+            sed -i "/^Match User /a\Match User $username\n PasswordAuthentication yes" "$SSH_CONFIG"
+        fi
     fi
-    
     log "INFO" "Match User配置更新完成"
 }
 
@@ -129,36 +129,35 @@ modify_ssh_config() {
         log "INFO" "跳过SSH配置修改"
         return
     fi
-    
+
     backup_ssh_config
-    
+
     # 修改SSH配置
     local config_changes=(
         "s/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/"
         "s/^#*PasswordAuthentication.*/PasswordAuthentication no/"
         "s/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/"
     )
-    
+
     for change in "${config_changes[@]}"; do
         sed -i "$change" "$SSH_CONFIG"
     done
-    
+
     # 设置SSH端口
-    local ssh_port
     while true; do
-        read -p "请输入新的SSH端口 [22]: " ssh_port
-        ssh_port=${ssh_port:-22}
-        
+        read -p "请输入新的SSH端口 [22]: " port_input
+        ssh_port=${port_input:-22}
         if validate_port "$ssh_port"; then
             break
         fi
+        log "WARN" "无效的端口号,请重新输入"
     done
-    
+
     sed -i "s/^#*Port .*/Port $ssh_port/" "$SSH_CONFIG"
-    
+
     # 修改Match User配置
     modify_match_user "$username"
-    
+
     # 验证配置
     log "INFO" "验证SSH配置..."
     if ! sshd -t; then
@@ -167,7 +166,7 @@ modify_ssh_config() {
         systemctl restart sshd
         error_exit "SSH配置错误"
     fi
-    
+
     systemctl restart sshd
     log "INFO" "SSH配置修改完成"
 }
@@ -176,19 +175,19 @@ modify_ssh_config() {
 configure_ufw() {
     local ssh_port=$1
     log "INFO" "开始配置UFW防火墙..."
-    
-    # 安装UFW
+
+    # 检查并安装UFW
     if ! command -v ufw &>/dev/null; then
         log "INFO" "安装UFW..."
         apt-get update && apt-get install -y ufw || error_exit "UFW安装失败"
     fi
-    
+
     # 配置UFW规则
-    ufw --force reset  # 重置现有规则
+    ufw --force reset # 重置现有规则
     ufw default deny incoming
     ufw default allow outgoing
     ufw allow "$ssh_port/tcp" comment "SSH"
-    
+
     # 配置额外端口
     read -p "请输入要开放的其他端口(多个端口用逗号分隔): " ports
     if [ -n "$ports" ]; then
@@ -198,16 +197,17 @@ configure_ufw() {
             if validate_port "$port"; then
                 ufw allow "$port" comment "Custom port"
                 log "INFO" "已开放端口 $port"
+            else
+                log "WARN" "跳过无效端口: $port"
             fi
         done
     fi
-    
+
     # 启用UFW
     log "INFO" "启用UFW..."
     ufw --force enable
     systemctl enable ufw
     ufw status verbose | tee -a "$LOG_FILE"
-    
     log "INFO" "UFW配置完成"
 }
 
@@ -221,22 +221,22 @@ install_docker() {
         log "INFO" "跳过Docker安装"
         return
     fi
-    
+
     if command -v docker &>/dev/null; then
         log "INFO" "Docker已安装"
         return
     fi
-    
+
     # 安装依赖
-    apt-get update
-    apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-    
-    # 添加Docker仓库
+    apt-get update || error_exit "更新包列表失败"
+    apt-get install -y apt-transport-https ca-certificates curl software-properties-common || error_exit "安装依赖失败"
+
+    # 安装Docker
     curl -fsSL https://get.docker.com | bash || error_exit "Docker安装失败"
-    
+
     # 启动Docker
-    systemctl start docker
-    systemctl enable docker
+    systemctl start docker || error_exit "启动Docker失败"
+    systemctl enable docker || error_exit "设置Docker自启动失败"
     
     log "INFO" "Docker安装完成"
     docker --version | tee -a "$LOG_FILE"
@@ -255,14 +255,12 @@ cleanup() {
 show_help() {
     cat << EOF
 用法: $(basename "$0") [选项]
-
 选项:
-    -h, --help      显示帮助信息
-    -v, --version   显示版本信息
-    
+    -h, --help     显示帮助信息
+    -v, --version  显示版本信息
 功能:
     - 创建新用户
-    - 配置SSH服务
+    - 配置SSH服务 
     - 设置UFW防火墙
     - 安装Docker
 EOF
@@ -295,21 +293,20 @@ done
 main() {
     # 检查权限
     check_root
-    
+
     # 创建日志文件
     touch "$LOG_FILE" || error_exit "无法创建日志文件"
-    
     log "INFO" "开始系统配置..."
-    
+
     # 注册清理函数
     trap cleanup EXIT
-    
+
     # 执行配置步骤
     create_user
     modify_ssh_config "$username"
     configure_ufw "$ssh_port"
     install_docker
-    
+
     log "INFO" "所有配置完成"
 }
 
