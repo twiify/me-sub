@@ -23,37 +23,9 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
-# 表格样式
-TOP_LEFT="┌"
-TOP_RIGHT="┐"
-BOTTOM_LEFT="└"
-BOTTOM_RIGHT="┘"
-HORIZONTAL="─"
-VERTICAL="│"
-LEFT_T="├"
-RIGHT_T="┤"
-TOP_T="┬"
-BOTTOM_T="┴"
-CROSS="┼"
-
 # 清屏函数
 clear_screen() {
     printf "\033c"
-}
-
-# 绘制水平线
-draw_line() {
-    local width=$1
-    local start=$2
-    local end=$3
-    printf "%s%${width}s%s\n" "$start" | sed "s/ /$HORIZONTAL/g" "$end"
-}
-
-# 打印带颜色的表格行
-print_row() {
-    local width=$1
-    shift
-    printf "$VERTICAL %b%-$((width-3))s$NC $VERTICAL\n" "$*"
 }
 
 # 获取防火墙状态
@@ -62,7 +34,6 @@ get_ufw_status() {
         echo -e "${RED}错误${NC}"
         return 1
     fi
-
     if echo "$status" | grep -q "Status: active"; then
         echo -e "${GREEN}启用${NC}"
     else
@@ -96,8 +67,6 @@ get_open_ports() {
 # 显示主界面
 show_main_menu() {
     clear_screen
-    local width=50
-
     echo -e "\n$WHITE UFW 防火墙管理工具 $NC\n"
     echo -e "$CYAN=====================================$NC"
     echo -e "$WHITE 防火墙状态: $(get_ufw_status)$NC"
@@ -116,7 +85,7 @@ show_main_menu() {
 # 显示详细信息
 show_details() {
     clear_screen
-    echo -e "\n$WHITE                详细端口使用情况$NC\n"
+    echo -e "\n$WHITE 详细端口使用情况$NC\n"
 
     # IPv4 端口信息
     echo -e "$CYAN═══════════════════════════════════════════════════════════════════════$NC"
@@ -133,23 +102,7 @@ show_details() {
         printf "${GREEN}%-15s %-10s %-15s %-25s${NC}\n" "$proto" "$port" "LISTEN" "$pid_prog"
     done
 
-    # IPv6 端口信息
-    echo -e "$CYAN═══════════════════════════════════════════════════════════════════════$NC"
-    echo -e "$BLUE◆ IPv6 端口使用情况:$NC"
     echo -e "$CYAN───────────────────────────────────────────────────────────────────────$NC"
-    printf "${WHITE}%-15s %-10s %-15s %-25s${NC}\n" "协议" "端口" "状态" "程序(PID)"
-    echo -e "$CYAN───────────────────────────────────────────────────────────────────────$NC"
-
-    ss -tunlp6 | grep LISTEN | while read -r line; do
-        proto=$(echo "$line" | awk '{print $1}')
-        addr=$(echo "$line" | awk '{print $4}')
-        pid_prog=$(echo "$line" | awk '{print $NF}' | sed 's/users:((//' | sed 's/))//')
-        port=$(echo "$addr" | cut -d: -f2)
-        printf "${BLUE}%-15s %-10s %-15s %-25s${NC}\n" "$proto" "$port" "LISTEN" "$pid_prog"
-    done
-
-    # UFW 规则列表
-    echo -e "$CYAN═══════════════════════════════════════════════════════════════════════$NC"
     echo -e "$YELLOW◆ UFW 规则列表:$NC"
     echo -e "$CYAN───────────────────────────────────────────────────────────────────────$NC"
     printf "${WHITE}%-10s %-15s %-15s %-25s${NC}\n" "规则号" "端口/协议" "动作" "来源"
@@ -177,10 +130,9 @@ add_port() {
         return 1
     fi
 
-    # 添加IPv4和IPv6的TCP/UDP规则
+    # 添加TCP/UDP规则
     for proto in tcp udp; do
-        yes | ufw allow $port/$proto >/dev/null 2>&1
-        yes | ufw allow $port/$proto from any to any >/dev/null 2>&1
+        ufw allow "$port/$proto" >/dev/null 2>&1
     done
 
     echo -e "${GREEN}端口规则添加成功!${NC}"
@@ -199,21 +151,46 @@ delete_port() {
         return 1
     fi
 
-    # 获取包含该端口的所有规则号
-    rules=$(ufw status numbered | grep "$port/" | sed 's/\[\([0-9]*\)\].*/\1/')
-
-    if [ -z "$rules" ]; then
-        echo -e "${RED}未找到该端口的规则!${NC}"
+    # 获取所有规则
+    rules_raw=$(ufw status numbered)
+    if [ -z "$rules_raw" ]; then
+        echo -e "${RED}获取防火墙规则失败!${NC}"
         read -p "按回车继续..."
         return 1
     fi
 
-    # 从最大规则号开始删除
-    for rule in $(echo "$rules" | sort -nr); do
-        yes | ufw delete $rule >/dev/null 2>&1
+    # 匹配规则: 包含端口号且为ALLOW IN的规则
+    rules=$(echo "$rules_raw" | grep -P "^\[\s*\d+\].*\b${port}\b.*ALLOW IN" | grep -oP "^\[\s*\K\d+")
+
+    if [ -z "$rules" ]; then
+        echo -e "${RED}未找到该端口的放行规则!${NC}"
+        read -p "按回车继续..."
+        return 1
+    fi
+
+    # 显示将要删除的规则
+    echo -e "${YELLOW}将删除以下规则:${NC}"
+    for rule in $rules; do
+        echo "$rules_raw" | grep -P "^\[\s*${rule}\]"
     done
 
-    echo -e "${GREEN}端口规则删除成功!${NC}"
+    read -p "确认删除这些规则吗? [y/N] " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}已取消删除操作${NC}"
+        read -p "按回车继续..."
+        return 0
+    fi
+
+    # 从大到小删除规则
+    for rule in $(echo "$rules" | sort -nr); do
+        if yes | ufw delete "$rule" >/dev/null 2>&1; then
+            echo -e "${GREEN}✓ 已删除规则 $rule${NC}"
+        else
+            echo -e "${RED}✗ 删除规则 $rule 失败${NC}"
+        fi
+    done
+
+    echo -e "${GREEN}端口规则删除完成!${NC}"
     read -p "按回车继续..."
 }
 
@@ -226,9 +203,9 @@ while true; do
         1)
             status=$(ufw status | grep Status | awk '{print $2}')
             if [ "$status" == "active" ]; then
-                yes | ufw disable >/dev/null 2>&1
+                ufw disable >/dev/null 2>&1
             else
-                yes | ufw enable >/dev/null 2>&1
+                ufw enable >/dev/null 2>&1
             fi
             ;;
         2)
