@@ -112,7 +112,7 @@ modify_match_user() {
         echo -e "\nMatch User $username\n PasswordAuthentication yes" >> "$SSH_CONFIG"
     else
         if ! grep -q "^Match User $username" "$SSH_CONFIG"; then
-            sed -i "/^Match User /a\Match User $username\n PasswordAuthentication yes" "$SSH_CONFIG"
+            sed -i "/^Match User /a\Match User $username\n\tPasswordAuthentication yes" "$SSH_CONFIG"
         fi
     fi
     log "INFO" "Match User配置更新完成"
