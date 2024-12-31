@@ -66,7 +66,7 @@ check_environment() {
 # 获取证书状态信息
 get_cert_info() {
     local domain=$1
-    local cert_dir="$ACME_DATA_DIR/$domain"
+    local cert_dir="$ACME_DATA_DIR/${domain}_ecc"
     
     if [[ -d "$cert_dir" ]]; then
         local expire_date
@@ -193,7 +193,7 @@ issue_cert() {
     read -r -p "请输入域名: " domain
     
     # 检查证书是否已存在
-    if [[ -d "$ACME_DATA_DIR/$domain" ]]; then
+    if [[ -d "$ACME_DATA_DIR/${domain}_ecc" ]]; then
         if ! confirm "证书已存在，是否重新签发?"; then
             return
         fi
@@ -272,7 +272,7 @@ view_cert() {
     echo "----------------------------------------"
     
     if confirm "是否查看证书内容?"; then
-        openssl x509 -in "$ACME_DATA_DIR/$domain/$domain.cer" -text -noout
+        openssl x509 -in "$ACME_DATA_DIR/${domain}_ecc/$domain.cer" -text -noout
     fi
 }
 
