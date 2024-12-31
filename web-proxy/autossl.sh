@@ -8,7 +8,6 @@ set -u # 使用未声明变量时报错
 # 全局变量  
 readonly SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 readonly ACME_SERVICE="acme.sh"
-readonly ACME_DATA_DIR="$SCRIPT_DIR/acmeout"
 
 # 颜色输出
 GREEN='\033[0;32m'
@@ -57,10 +56,7 @@ confirm() {
 # 检查容器和目录
 check_environment() {
     # 检查容器运行状态
-    docker compose ps $ACME_SERVICE | grep "Up" >/dev/null 2>&1 || error_exit "acme.sh 容器未运行"
-    
-    # 检查数据目录
-    [[ -d "$ACME_DATA_DIR" ]] || error_exit "acme数据目录($ACME_DATA_DIR)不存在"
+    docker-compose ps $ACME_SERVICE | grep "Up" >/dev/null 2>&1 || error_exit "acme.sh 容器未运行"
 }
 
 # 全局配置相关函数
@@ -230,48 +226,42 @@ configure_dns_provider() {
     fi
 }
 
+# 获取证书列表信息 
+get_cert_list() {
+    docker exec $ACME_SERVICE --list
+}
+
 # 获取证书状态信息
 get_cert_info() {
     local domain=$1
-    local cert_dir="$ACME_DATA_DIR/${domain}_ecc"
-    
-    if [[ -d "$cert_dir" ]]; then
-        local expire_date
-        expire_date=$(openssl x509 -in "$cert_dir/$domain.cer" -noout -enddate 2>/dev/null | cut -d= -f2)
-        echo "证书信息:"
-        echo "  域名: $domain"
-        echo "  到期时间: $expire_date"
-        echo "  证书路径: $cert_dir"
-    else
-        warning "未找到域名 $domain 的证书信息"
-        return 1
-    fi
+    docker exec $ACME_SERVICE --info -d "$domain"
 }
 
-# 获取可用证书列表
-get_available_certs() {
-    local -a certs=()
-    for cert_dir in "$ACME_DATA_DIR"/*; do
-        if [[ -d "$cert_dir" && -f "$cert_dir/$(basename "$cert_dir").cer" ]]; then
-            certs+=("$(basename "$cert_dir")")
-        fi
-    done
-    echo "${certs[@]}"
+# 解析证书列表到数组
+parse_cert_list() {
+    local cert_list
+    cert_list=$(get_cert_list | grep "Main_Domain" | awk '{print $2}')
+    echo "$cert_list"
 }
 
 # 显示证书选择菜单
 show_cert_menu() {
     local title=$1
-    local -a certs=($2)
-    local index=1
-
+    local cert_list
+    local -a certs
+    
+    # 获取证书列表
+    cert_list=$(parse_cert_list)
+    mapfile -t certs <<< "$cert_list"
+    
     [[ ${#certs[@]} -eq 0 ]] && error_exit "没有可用的证书"
 
     echo -e "\n${title}"
     echo "----------------------------------------"
+    local i=1
     for cert in "${certs[@]}"; do
-        echo "$index) $cert"
-        ((index++))
+        echo "$i) $cert"
+        ((i++))
     done
     echo "----------------------------------------"
 
@@ -291,19 +281,20 @@ show_cert_menu() {
 list_certs() {
     info "已签发的证书列表:"
     echo "----------------------------------------"
+    get_cert_list
+    echo "----------------------------------------"
+}
+
+# 查看证书详细信息
+view_cert() {
+    info "查看证书详细信息..."
     
-    local found=false
-    local certs=($(get_available_certs))
+    local domain=$(show_cert_menu "请选择要查看的证书:")
+    [[ -z "$domain" ]] && return
     
-    if [ ${#certs[@]} -eq 0 ]; then
-        warning "未找到任何已签发的证书"
-        return
-    fi
-    
-    for cert in "${certs[@]}"; do
-        get_cert_info "$cert"
-        echo "----------------------------------------"
-    done
+    echo "----------------------------------------"
+    get_cert_info "$domain"
+    echo "----------------------------------------"
 }
 
 # DNS提供商配置
@@ -458,7 +449,7 @@ view_cert() {
 renew_all_certs() {
     info "更新所有证书..."
     
-    if docker exec $ACME_SERVICE --renew-all; then
+    if docker exec $ACME_SERVICE --renew-all --force; then
         success "所有证书更新成功!"
     else
         error_exit "证书更新失败"
