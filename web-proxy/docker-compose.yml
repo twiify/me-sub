@@ -1,0 +1,32 @@
+services:
+  nginx:
+    image: nginx:1.27.3-alpine
+    restart: unless-stopped
+    container_name: nginx
+    cap_drop:
+      - ALL
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/html:/etc/nginx/html
+    labels:
+      - sh.acme.autoload.domain=example.com
+  
+  acme.sh:
+    image: neilpang/acme.sh
+    container_name: acme.sh
+    command: daemon
+    volumes:
+      - ./acmeout:/acme.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  default:
+    external: true
+    name: self-host
