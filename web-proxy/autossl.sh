@@ -193,7 +193,7 @@ show_cert_menu() {
     # 检查是否有证书
     if [[ -z "$cert_info" ]]; then
         error_exit "没有可用的证书"
-    }
+    fi
     
     # 从证书信息中提取域名到数组
     while IFS= read -r line; do
