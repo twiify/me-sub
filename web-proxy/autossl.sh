@@ -180,29 +180,48 @@ parse_cert_list() {
 # 显示证书选择菜单
 show_cert_menu() {
     local title=$1
-    local cert_list
-    local -a certs
+    local full_list cert_info header
+    local -a domains
     
-    # 获取证书列表
-    cert_list=$(parse_cert_list)
-    mapfile -t certs <<< "$cert_list"
+    # 获取完整列表
+    full_list=$(get_cert_list)
     
-    [[ ${#certs[@]} -eq 0 ]] && error_exit "没有可用的证书"
+    # 提取表头和证书信息
+    header=$(echo "$full_list" | head -n1)
+    cert_info=$(echo "$full_list" | tail -n +2)
+    
+    # 检查是否有证书
+    if [[ -z "$cert_info" ]]; then
+        error_exit "没有可用的证书"
+    }
+    
+    # 从证书信息中提取域名到数组
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            domains+=("$(echo "$line" | awk '{print $1}')")
+        fi
+    done <<< "$cert_info"
+    
+    # 检查是否有域名
+    [[ ${#domains[@]} -eq 0 ]] && error_exit "没有可用的证书"
 
     echo -e "\n${title}"
     echo "----------------------------------------"
+    echo "$header"
     local i=1
-    for cert in "${certs[@]}"; do
-        echo "$i) $cert"
-        ((i++))
-    done
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            echo "$i) $line"
+            ((i++))
+        fi
+    done <<< "$cert_info"
     echo "----------------------------------------"
 
     local selection
     while true; do
-        read -r -p "请选择证书编号 [1-${#certs[@]}]: " selection
-        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#certs[@]}" ]; then
-            echo "${certs[$selection-1]}"
+        read -r -p "请选择证书编号 [1-${#domains[@]}]: " selection
+        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#domains[@]}" ]; then
+            echo "${domains[$selection-1]}"
             break
         else
             warning "请输入有效的编号"
