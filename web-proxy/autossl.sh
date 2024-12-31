@@ -57,7 +57,7 @@ confirm() {
 # 检查容器和目录
 check_environment() {
     # 检查容器运行状态
-    docker-compose ps $ACME_SERVICE | grep "Up" >/dev/null 2>&1 || error_exit "acme.sh 容器未运行"
+    docker compose ps $ACME_SERVICE | grep "Up" >/dev/null 2>&1 || error_exit "acme.sh 容器未运行"
     
     # 检查数据目录
     [[ -d "$ACME_DATA_DIR" ]] || error_exit "acme数据目录($ACME_DATA_DIR)不存在"
