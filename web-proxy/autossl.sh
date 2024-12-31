@@ -145,37 +145,45 @@ configure_dns_provider() {
     echo "1) Cloudflare"
     echo "2) Aliyun"
     echo "3) DNSPod"
-    read -r -p "请选择 [1-3]: " choice
 
     local dns_provider dns_credentials
-    case $choice in
-        1)
-            dns_provider="dns_cf"
-            read -r -p "Cloudflare Email: " cf_email
-            read -r -s -p "Cloudflare API Key: " cf_key
-            echo
-            dns_credentials="-e CF_Email=$cf_email -e CF_Key=$cf_key"
-            ;;
-        2)
-            dns_provider="dns_ali"
-            read -r -p "阿里云 Access Key: " ali_key
-            read -r -s -p "阿里云 Secret: " ali_secret
-            echo
-            dns_credentials="-e Ali_Key=$ali_key -e Ali_Secret=$ali_secret"
-            ;;
-        3)
-            dns_provider="dns_dp"
-            read -r -p "DNSPod ID: " dp_id
-            read -r -s -p "DNSPod Key: " dp_key
-            echo
-            dns_credentials="-e DP_Id=$dp_id -e DP_Key=$dp_key"
-            ;;
-        *)
-            error_exit "无效的选择"
-            ;;
-    esac
+    local dns_provider dns_credentials choice
+    while true; do
+        read -r -p "请选择 [1-3]: " choice
+        case $choice in
+            1)
+                dns_provider="dns_cf"
+                read -r -p "Cloudflare Email: " cf_email
+                read -r -s -p "Cloudflare API Key: " cf_key
+                echo
+                dns_credentials="-e CF_Email=$cf_email -e CF_Key=$cf_key"
+                break
+                ;;
+            2)
+                dns_provider="dns_ali"
+                read -r -p "阿里云 Access Key: " ali_key
+                read -r -s -p "阿里云 Secret: " ali_secret
+                echo
+                dns_credentials="-e Ali_Key=$ali_key -e Ali_Secret=$ali_secret"
+                break
+                ;;
+            3)
+                dns_provider="dns_dp"
+                read -r -p "DNSPod ID: " dp_id
+                read -r -s -p "DNSPod Key: " dp_key
+                echo
+                dns_credentials="-e DP_Id=$dp_id -e DP_Key=$dp_key"
+                break
+                ;;
+            *)
+                warning "请输入有效的选项"
+                ;;
+        esac
+    done
     
-    echo "$dns_provider:$dns_credentials"
+    # 使用全局变量返回值
+    SELECTED_DNS_PROVIDER="$dns_provider"
+    SELECTED_DNS_CREDENTIALS="$dns_credentials"
 }
 
 # 签发新证书
@@ -192,10 +200,15 @@ issue_cert() {
     fi
     
     # 配置DNS提供商
-    IFS=':' read -r dns_provider dns_credentials < <(configure_dns_provider)
+    configure_dns_provider
     
-    info "正在签发证书 $domain..."
-    if docker exec $dns_credentials $ACME_SERVICE --issue -d "$domain" --dns "$dns_provider"; then
+    # 使用全局变量获取DNS配置
+    if [[ -z "${SELECTED_DNS_PROVIDER:-}" || -z "${SELECTED_DNS_CREDENTIALS:-}" ]]; then
+        error_exit "DNS配置无效"
+    fi
+    
+    info "正在使用 $SELECTED_DNS_PROVIDER 签发证书 $domain..."
+    if docker exec $SELECTED_DNS_CREDENTIALS $ACME_SERVICE --issue -d "$domain" --dns "$SELECTED_DNS_PROVIDER"; then
         success "证书签发成功!"
         get_cert_info "$domain"
     else
