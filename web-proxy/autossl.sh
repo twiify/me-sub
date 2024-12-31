@@ -159,73 +159,6 @@ clean_dns_config() {
     fi
 }
 
-# DNS提供商配置
-configure_dns_provider() {
-    local domain=$1
-    local existing_config
-    
-    # 检查是否存在现有配置
-    if existing_config=$(load_dns_config "$domain"); then
-        local provider
-        provider=$(echo "$existing_config" | jq -r '.provider')
-        info "发现域名 $domain 的现有DNS配置 ($provider)"
-        
-        if confirm "是否使用现有配置?"; then
-            SELECTED_DNS_PROVIDER=$(echo "$existing_config" | jq -r '.provider')
-            SELECTED_DNS_CREDENTIALS=$(echo "$existing_config" | jq -r '.credentials')
-            return
-        fi
-    fi
-    
-    echo "请选择DNS提供商:"
-    echo "1) Cloudflare"
-    echo "2) Aliyun"
-    echo "3) DNSPod"
-    
-    local dns_provider dns_credentials choice
-    while true; do
-        read -r -p "请选择 [1-3]: " choice
-        case $choice in
-            1)
-                dns_provider="dns_cf"
-                read -r -p "Cloudflare Email: " cf_email
-                read -r -s -p "Cloudflare API Key: " cf_key
-                echo
-                dns_credentials="-e CF_Email=$cf_email -e CF_Key=$cf_key"
-                break
-                ;;
-            2)
-                dns_provider="dns_ali"
-                read -r -p "阿里云 Access Key: " ali_key
-                read -r -s -p "阿里云 Secret: " ali_secret
-                echo
-                dns_credentials="-e Ali_Key=$ali_key -e Ali_Secret=$ali_secret"
-                break
-                ;;
-            3)
-                dns_provider="dns_dp"
-                read -r -p "DNSPod ID: " dp_id
-                read -r -s -p "DNSPod Key: " dp_key
-                echo
-                dns_credentials="-e DP_Id=$dp_id -e DP_Key=$dp_key"
-                break
-                ;;
-            *)
-                warning "请输入有效的选项"
-                ;;
-        esac
-    done
-
-    SELECTED_DNS_PROVIDER="$dns_provider"
-    SELECTED_DNS_CREDENTIALS="$dns_credentials"
-    
-    # 保存配置
-    if confirm "是否保存DNS配置以供将来使用?"; then
-        save_dns_config "$domain" "$dns_provider" "$dns_credentials"
-        success "DNS配置已保存"
-    fi
-}
-
 # 获取证书列表信息 
 get_cert_list() {
     docker exec $ACME_SERVICE --list
@@ -299,12 +232,27 @@ view_cert() {
 
 # DNS提供商配置
 configure_dns_provider() {
+    local domain=$1
+    local existing_config
+    
+    # 检查是否存在现有配置
+    if existing_config=$(load_dns_config "$domain"); then
+        local provider
+        provider=$(echo "$existing_config" | jq -r '.provider')
+        info "发现域名 $domain 的现有DNS配置 ($provider)"
+        
+        if confirm "是否使用现有配置?"; then
+            SELECTED_DNS_PROVIDER=$(echo "$existing_config" | jq -r '.provider')
+            SELECTED_DNS_CREDENTIALS=$(echo "$existing_config" | jq -r '.credentials')
+            return
+        fi
+    fi
+    
     echo "请选择DNS提供商:"
     echo "1) Cloudflare"
     echo "2) Aliyun"
     echo "3) DNSPod"
-
-    local dns_provider dns_credentials
+    
     local dns_provider dns_credentials choice
     while true; do
         read -r -p "请选择 [1-3]: " choice
@@ -338,10 +286,15 @@ configure_dns_provider() {
                 ;;
         esac
     done
-    
-    # 使用全局变量返回值
+
     SELECTED_DNS_PROVIDER="$dns_provider"
     SELECTED_DNS_CREDENTIALS="$dns_credentials"
+    
+    # 保存配置
+    if confirm "是否保存DNS配置以供将来使用?"; then
+        save_dns_config "$domain" "$dns_provider" "$dns_credentials"
+        success "DNS配置已保存"
+    fi
 }
 
 # 签发新证书
@@ -425,23 +378,6 @@ remove_cert() {
         else
             error_exit "证书删除失败"
         fi
-    fi
-}
-
-# 查看证书详细信息
-view_cert() {
-    info "查看证书详细信息..."
-    
-    # 获取并显示可用证书列表
-    local certs=($(get_available_certs))
-    local domain=$(show_cert_menu "请选择要查看的证书:" "${certs[*]}")
-    
-    echo "----------------------------------------"
-    get_cert_info "$domain"
-    echo "----------------------------------------"
-    
-    if confirm "是否查看证书内容?"; then
-        openssl x509 -in "$ACME_DATA_DIR/${domain}_ecc/$domain.cer" -text -noout
     fi
 }
 
