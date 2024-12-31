@@ -173,7 +173,7 @@ get_cert_info() {
 # 解析证书列表到数组
 parse_cert_list() {
     local cert_list
-    cert_list=$(get_cert_list | grep "Main_Domain" | awk '{print $2}')
+    cert_list=$(get_cert_list | awk 'NR>1 {print $1}')
     echo "$cert_list"
 }
 
