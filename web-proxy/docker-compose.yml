@@ -3,8 +3,6 @@ services:
     image: nginx:1.27.3-alpine
     restart: unless-stopped
     container_name: nginx
-    cap_drop:
-      - ALL
     ports:
       - '80:80'
       - '443:443'
