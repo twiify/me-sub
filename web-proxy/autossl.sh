@@ -321,7 +321,7 @@ issue_cert() {
     fi
     
     info "正在使用 $SELECTED_DNS_PROVIDER 签发证书 $domain..."
-    if docker exec $SELECTED_DNS_CREDENTIALS $ACME_SERVICE --issue -d "$domain" --dns "$SELECTED_DNS_PROVIDER"; then
+    if docker exec $SELECTED_DNS_CREDENTIALS $ACME_SERVICE --issue --force -d "$domain" --dns "$SELECTED_DNS_PROVIDER"; then
         success "证书签发成功!"
         get_cert_info "$domain"
     else
@@ -340,8 +340,9 @@ deploy_cert() {
     
     # 获取并显示可用证书列表
     show_cert_menu "请选择要部署的证书："
-    [[ -z "$SELECTED_MENU_CERT" ]] && warning "没有该证书！" && return
-    local domain = $SELECTED_MENU_CERT;
+
+    local domain="$SELECTED_MENU_CERT";
+    [[ -z "$domain" ]] && warning "没有该证书！" && return
     
     read -r -p "请输入目标容器的label值(sh.acme.autoload.domain=?): " label_value
     
@@ -365,8 +366,9 @@ remove_cert() {
     info "删除证书..."
     
     show_cert_menu "请选择要删除的证书："
-    [[ -z "$SELECTED_MENU_CERT" ]] && warning "没有该证书！" && return
-    local domain = $SELECTED_MENU_CERT;
+
+    local domain="$SELECTED_MENU_CERT";
+    [[ -z "$domain" ]] && warning "没有该证书！" && return
     
     if confirm "确定要删除证书 $domain 吗?"; then
         info "正在删除证书..."
