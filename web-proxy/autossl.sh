@@ -205,7 +205,7 @@ show_cert_menu() {
     if [[ "$i" == "1" ]]; then
         SELECTED_MENU_CERT=""
         warning "没有可用证书"
-        return 1
+        return
     fi
 
     local selection
