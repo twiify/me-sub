@@ -202,6 +202,12 @@ show_cert_menu() {
     done
     echo "----------------------------------------"
 
+    if [[ "$i" == "1" ]]; then
+        SELECTED_MENU_CERT=""
+        warning "没有可用证书"
+        return 1
+    fi
+
     local selection
     while true; do
         read -r -p "请选择证书编号 [1-$((i-1))]: " selection
@@ -342,7 +348,7 @@ deploy_cert() {
     show_cert_menu "请选择要部署的证书："
 
     local domain="$SELECTED_MENU_CERT";
-    [[ -z "$domain" ]] && warning "没有该证书！" && return
+    [[ -z "$domain" ]] && return
     
     read -r -p "请输入目标容器的label值(sh.acme.autoload.domain=?): " label_value
     
@@ -368,7 +374,7 @@ remove_cert() {
     show_cert_menu "请选择要删除的证书："
 
     local domain="$SELECTED_MENU_CERT";
-    [[ -z "$domain" ]] && warning "没有该证书！" && return
+    [[ -z "$domain" ]] && return
     
     if confirm "确定要删除证书 $domain 吗?"; then
         info "正在删除证书..."
