@@ -180,48 +180,33 @@ parse_cert_list() {
 # 显示证书选择菜单
 show_cert_menu() {
     local title=$1
-    local full_list cert_info header
-    local -a domains
+    local cert_list
+    local -a certs
     
-    # 获取完整列表
-    full_list=$(get_cert_list)
+    # 获取证书列表
+    cert_list=$(parse_cert_list) || error_exit "没有可用的证书"
     
-    # 提取表头和证书信息
-    header=$(echo "$full_list" | head -n1)
-    cert_info=$(echo "$full_list" | tail -n +2)
+    # 将证书列表转换为数组
+    readarray -t certs <<< "$cert_list"
     
-    # 检查是否有证书
-    if [[ -z "$cert_info" ]]; then
-        error_exit "没有可用的证书"
-    fi
-    
-    # 从证书信息中提取域名到数组
-    while IFS= read -r line; do
-        if [[ -n "$line" ]]; then
-            domains+=("$(echo "$line" | awk '{print $1}')")
-        fi
-    done <<< "$cert_info"
-    
-    # 检查是否有域名
-    [[ ${#domains[@]} -eq 0 ]] && error_exit "没有可用的证书"
+    [[ ${#certs[@]} -eq 0 ]] && error_exit "没有可用的证书"
 
     echo -e "\n${title}"
-    echo "----------------------------------------"
-    echo "$header"
     local i=1
-    while IFS= read -r line; do
-        if [[ -n "$line" ]]; then
-            echo "$i) $line"
+    echo "----------------------------------------"
+    for cert in "${certs[@]}"; do
+        if [[ -n "$cert" ]]; then  # 只显示非空行
+            echo "$i) $cert"
             ((i++))
         fi
-    done <<< "$cert_info"
+    done
     echo "----------------------------------------"
 
     local selection
     while true; do
-        read -r -p "请选择证书编号 [1-${#domains[@]}]: " selection
-        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#domains[@]}" ]; then
-            echo "${domains[$selection-1]}"
+        read -r -p "请选择证书编号 [1-$((i-1))]: " selection
+        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "$((i-1))" ]; then
+            SELECTED_MENU_CERT="${certs[$selection-1]}"
             break
         else
             warning "请输入有效的编号"
@@ -240,12 +225,10 @@ list_certs() {
 # 查看证书详细信息
 view_cert() {
     info "查看证书详细信息..."
-    
-    local domain=$(show_cert_menu "请选择要查看的证书:")
-    [[ -z "$domain" ]] && return
-    
+    show_cert_menu "请选择要查看的证书："
+    [[ -z "$SELECTED_MENU_CERT" ]] && return
     echo "----------------------------------------"
-    get_cert_info "$domain"
+    get_cert_info "$SELECTED_MENU_CERT"
     echo "----------------------------------------"
 }
 
@@ -323,7 +306,7 @@ issue_cert() {
     read -r -p "请输入域名: " domain
     
     # 检查证书是否已存在
-    if docker exec $ACME_SERVICE --list | grep -q "Main_Domain: $domain"; then
+    if docker exec $ACME_SERVICE --list | grep -q "$domain"; then
         if ! confirm "证书已存在，是否重新签发?"; then
             return
         fi
@@ -356,8 +339,9 @@ deploy_cert() {
     info "部署证书..."
     
     # 获取并显示可用证书列表
-    local certs=($(get_available_certs))
-    local domain=$(show_cert_menu "请选择要部署的证书:" "${certs[*]}")
+    show_cert_menu "请选择要部署的证书："
+    [[ -z "$SELECTED_MENU_CERT" ]] && warning "没有该证书！" && return
+    local domain = $SELECTED_MENU_CERT;
     
     read -r -p "请输入目标容器的label值(sh.acme.autoload.domain=?): " label_value
     
@@ -380,8 +364,9 @@ deploy_cert() {
 remove_cert() {
     info "删除证书..."
     
-    local domain=$(show_cert_menu "请选择要删除的证书:")
-    [[ -z "$domain" ]] && return
+    show_cert_menu "请选择要删除的证书："
+    [[ -z "$SELECTED_MENU_CERT" ]] && warning "没有该证书！" && return
+    local domain = $SELECTED_MENU_CERT;
     
     if confirm "确定要删除证书 $domain 吗?"; then
         info "正在删除证书..."
