@@ -155,11 +155,14 @@ dns:
   # 路由器个人建议使用 redir-host 以最佳兼容性
   # 其他设备可以使用 fake-ip
   enhanced-mode: fake-ip
-  fake-ip-range: 28.0.0.1/8
+  fake-ip-range: 198.18.0.1/16
   fake-ip-filter:
-    - '*'
+    - '*.lan'
     - '+.lan'
     - '+.local'
+    - 'localhost.ptlogin2.qq.com'
+    - 'www.msftncsi.com'
+    - 'www.msftconnecttest.com'
   default-nameserver:
     - 223.5.5.5
     - 119.29.29.29
@@ -171,15 +174,18 @@ dns:
     - 'tls://1.0.0.1#dns'
     - 'tls://[2001:4860:4860::8844]#dns'
     - 'tls://[2606:4700:4700::1001]#dns'
-  proxy-server-nameserver:
-    - https://doh.pub/dns-query
+  fallback:
+    - tls://1.1.1.1:853
+    - tls://8.8.8.8:853
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
   nameserver-policy:
     "geosite:cn,private":
       - https://doh.pub/dns-query
       - https://dns.alidns.com/dns-query
-    "geosite:!cn,!private": 
-      - "tls://dns.google"
-      - "tls://cloudflare-dns.com"
 
 # 域名嗅探
 sniffer:
@@ -199,7 +205,7 @@ tun:
   # tun模式堆栈，可选 system, gvisor, mixed(推荐)
   # 若开启防火墙，则需要放行clash或者不使用system/mixed
   stack: mixed
-  device: utun_clash
+  device: utun
   # dns劫持，windows/macos无法自动劫持到局域网dns请求，android在开启私人dns后无法自动劫持dns请求
   dns-hijack:
     - "any:53"
@@ -262,23 +268,6 @@ proxy-groups:
   - { name: Steam, <<: *pr }
   - { name: OneDrive, <<: *pr }
   - { name: 微软服务, <<: *pr }
-  - {
-      name: 国内,
-      type: select,
-      proxies:
-        [
-          DIRECT,
-          节点选择,
-          全部节点,
-          自动选择,
-          香港,
-          台湾,
-          日本,
-          新加坡,
-          美国,
-          其它地区,
-        ],
-    }
   # 其他就是所有规则没匹配到的
   # 可以理解为 ACL4SSR 配置里的 漏网之鱼
   # 换言之，其他走代理就是绕过中国大陆地址，不走就是 GFWList 模式
@@ -338,8 +327,8 @@ rules:
   - GEOIP,netflix,Netflix
   - GEOIP,telegram,Telegram
   - GEOIP,twitter,Twitter
-  - GEOSITE,CN,国内
-  - GEOIP,CN,国内
+  - GEOSITE,CN,DIRECT,no-resolve
+  - GEOIP,CN,DIRECT,no-resolve
   # 绕过局域网地址
   - IP-CIDR,10.0.0.0/8,DIRECT
   - IP-CIDR,172.16.0.0/12,DIRECT
