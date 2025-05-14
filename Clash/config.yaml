@@ -286,9 +286,6 @@ proxy-groups:
 
 # 规则订阅
 rule-providers:
-  # 秋风广告拦截规则
-  # https://awavenue.top
-  # 由于 Anti-AD 误杀率高，本项目已在 1.11-241024 版本更换秋风广告规则
   AWAvenue-Ads:
     type: http
     behavior: domain
@@ -304,6 +301,7 @@ rules:
 # - AND,(AND,(DST-PORT,443),(NETWORK,UDP)),(NOT,((GEOSITE,cn))),REJECT
 # - AND,(AND,(DST-PORT,443),(NETWORK,UDP)),(NOT,((GEOIP,CN))),REJECT
   - RULE-SET,AWAvenue-Ads,广告拦截
+  - GEOSITE,category-ads,广告拦截
   - GEOSITE,category-ai-chat-!cn,AI服务
   - GEOSITE,apple,Apple
   - GEOSITE,apple-cn,Apple
@@ -318,17 +316,17 @@ rules:
   - GEOSITE,tiktok,TikTok
   - GEOSITE,spotify,Spotify
   - GEOSITE,pixiv,Pixiv
-  - GEOSITE,steam@cn,DIRECT
   - GEOSITE,steam,Steam
   - GEOSITE,onedrive,OneDrive
   - GEOSITE,microsoft,微软服务
+  - GEOSITE,geolocation-cn,DIRECT,no-resolve
+  - GEOSITE,cn,DIRECT,no-resolve
   - GEOSITE,geolocation-!cn,漏网之鱼
   - GEOIP,google,Google
   - GEOIP,netflix,Netflix
   - GEOIP,telegram,Telegram
   - GEOIP,twitter,Twitter
-  - GEOSITE,CN,DIRECT,no-resolve
-  - GEOIP,CN,DIRECT,no-resolve
+  - GEOIP,cn,DIRECT,no-resolve
   # 绕过局域网地址
   - IP-CIDR,10.0.0.0/8,DIRECT
   - IP-CIDR,172.16.0.0/12,DIRECT
