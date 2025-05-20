@@ -4,8 +4,8 @@ services:
     restart: unless-stopped
     container_name: nginx
     ports:
-      - '80:80'
-      - '443:443'
+      - "80:80"
+      - "443:443"
     environment:
       - TZ=Asia/Shanghai
     volumes:
@@ -14,12 +14,15 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl
       - ./nginx/html:/etc/nginx/html
     labels:
-      - sh.acme.autoload.domain=example.com
-  
+      - sh.acme.autoload.domain=self-host
+
   acme.sh:
-    image: neilpang/acme.sh
+    image: neilpang/acme.sh:latest
     container_name: acme.sh
     command: daemon
+    stdin_open: true
+    tty: true
+    restart: no
     volumes:
       - ./acmeout:/acme.sh
       - /var/run/docker.sock:/var/run/docker.sock
