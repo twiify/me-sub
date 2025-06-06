@@ -27,6 +27,7 @@ services:
     restart: no
     volumes:
       - ./acmeout:/acme.sh
+      - ./nginx/ssl:/etc/nginx/ssl
       - /var/run/docker.sock:/var/run/docker.sock
   
   xray:
