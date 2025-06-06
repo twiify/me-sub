@@ -88,9 +88,6 @@ setup_config() {
     new_uuid=$(openssl rand -hex 16)
     local new_short_id
     new_short_id=$(openssl rand -hex 8)
-    local new_xhttp_path
-    new_xhttp_path="/$(openssl rand -hex 8)"
-
     log_message "正在从模板创建新的 xray_config.json (使用 jq)..."
     jq \
       --arg ruuid "$new_uuid" \
@@ -99,7 +96,6 @@ setup_config() {
       --arg pvk "$PRIVATE_KEY" \
       --arg pbk "$PUBLIC_KEY" \
       --arg sid "$new_short_id" \
-      --arg rpath "$new_xhttp_path" \
       '
       (.inbounds[0].settings.clients[0].id) = $ruuid |
       (.inbounds[0].settings.clients[0].flow) = $rflow |
@@ -134,18 +130,8 @@ generate_subscription_service() {
     sid=$(echo "$reality_inbound" | jq -r '.streamSettings.realitySettings.shortIds[0]')
     local flow
     flow=$(echo "$reality_inbound" | jq -r '.settings.clients[0].flow')
-    # 在新架构中，xhttp path 仅用于生成客户端链接，不由服务端配置
-    # 我们从 profile 文件中读取它，如果不存在则生成一个新的
-    if grep -q "XHTTP_PATH" "$PROFILE_FILE"; then
-        source "$PROFILE_FILE"
-    else
-        XHTTP_PATH="/$(openssl rand -hex 8)"
-        echo "XHTTP_PATH=\"$XHTTP_PATH\"" >> "$PROFILE_FILE"
-    fi
-    local path_encoded
-    path_encoded=$(printf '%s' "$XHTTP_PATH" | jq -s -R -r @uri)
     local node_name="Xray-REALITY-${PROXY_DOMAIN}"
-    local vless_link="vless://${uuid}@${PROXY_DOMAIN}:443?security=reality&sni=${PROXY_DOMAIN}&fp=chrome&pbk=${pbk}&sid=${sid}&type=xhttp&path=${path_encoded}&flow=${flow}#${node_name}"
+    local vless_link="vless://${uuid}@${PROXY_DOMAIN}:443?security=reality&sni=${PROXY_DOMAIN}&fp=chrome&pbk=${pbk}&sid=${sid}&flow=${flow}#${node_name}"
 
     mkdir -p "$OUTPUT_DIR"
     echo "$vless_link" > "${OUTPUT_DIR}/vless.txt"
@@ -159,7 +145,6 @@ generate_subscription_service() {
             -e "s|{{REALITY_SNI}}|${PROXY_DOMAIN}|g" \
             -e "s|{{REALITY_PBK}}|${pbk}|g" \
             -e "s|{{REALITY_SID}}|${sid}|g" \
-            -e "s|{{REALITY_PATH}}|${XHTTP_PATH}|g" \
             "$CLASH_TEMPLATE_FILE")
         echo "$clash_content" > "${OUTPUT_DIR}/clash.yaml"
     fi
@@ -169,7 +154,8 @@ generate_subscription_service() {
     log_message "正在生成 Nginx 订阅配置文件: $sub_config_file"
     cat > "$sub_config_file" << EOF
 server {
-    listen unix:/dev/shm/nginx.sock ssl http2;
+    listen unix:/dev/shm/nginx.sock ssl proxy_protocol;
+    http2 on;
     server_name $PROXY_DOMAIN;
 
     ssl_certificate /etc/nginx/ssl/$PROXY_DOMAIN/full.pem;

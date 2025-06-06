@@ -232,8 +232,16 @@ deploy_certificate_to_nginx() {
     fi
 
     log_message "准备将域名 '$domain' 的证书部署到 Nginx 容器 '$NGINX_CONTAINER_NAME'..."
-    local key_file="$NGINX_CERT_PATH/$domain/key.pem"
-    local fullchain_file="$NGINX_CERT_PATH/$domain/full.pem"
+    local cert_dir_in_container="$NGINX_CERT_PATH/$domain"
+    local key_file="$cert_dir_in_container/key.pem"
+    local fullchain_file="$cert_dir_in_container/full.pem"
+
+    log_message "在 acme.sh 容器内创建证书目录: $cert_dir_in_container"
+    docker exec "$ACME_SH_CONTAINER_NAME" mkdir -p "$cert_dir_in_container"
+    if [ $? -ne 0 ]; then
+        log_message "错误: 在容器内创建目录失败。"
+        return 1
+    fi
 
     log_message "部署证书 '$domain' 到 Nginx..."
     run_acme_sh_command \

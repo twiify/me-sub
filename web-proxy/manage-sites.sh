@@ -77,7 +77,8 @@ add_site() {
     # 创建 Nginx 配置文件
     cat > "$site_config_file" << EOF
 server {
-    listen unix:/dev/shm/nginx.sock ssl http2;
+    listen unix:/dev/shm/nginx.sock ssl proxy_protocol;
+    http2 on;
     server_name $SERVER_NAME;
 
     ssl_certificate /etc/nginx/ssl/$SERVER_NAME/full.pem;

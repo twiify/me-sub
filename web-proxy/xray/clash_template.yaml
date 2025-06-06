@@ -117,7 +117,7 @@ proxy-providers:
         server: {{DOMAIN}}
         port: 443
         uuid: {{REALITY_UUID}}
-        network: xhttp
+        network: tcp
         tls: true
         udp: true
         flow: {{REALITY_FLOW}}
@@ -126,8 +126,6 @@ proxy-providers:
         reality-opts:
           public-key: {{REALITY_PBK}}
           short-id: {{REALITY_SID}}
-        xhttp-opts:
-          path: "{{REALITY_PATH}}"
     # 如需要为该订阅组节点添加前缀，取消下面两行注释
     # override:
     # additional-prefix: "[订阅一]"
