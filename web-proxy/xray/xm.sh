@@ -152,7 +152,7 @@ initial_setup() {
         (.inbounds[] | select(.streamSettings.security == "reality") .streamSettings.realitySettings.serverNames) = $servernames |
         (.inbounds[] | select(.streamSettings.security == "reality") .streamSettings.realitySettings.privateKey) = $pvk |
         (.inbounds[] | select(.streamSettings.security == "reality") .streamSettings.realitySettings.publicKey) = $pbk |
-        (.inbounds[] | select(.streamSettings.security == "reality") .streamSettings.realitySettings.shortId) = $sids |
+        (.inbounds[] | select(.streamSettings.security == "reality") .streamSettings.realitySettings.shortIds) = $sids |
         (.inbounds[] | select(.streamSettings.security == "none" and .streamSettings.network == "xhttp") .settings.clients[0].id) = $nuuid |
         (.inbounds[] | select(.streamSettings.security == "none" and .streamSettings.network == "xhttp") .streamSettings.xhttpSettings.path) = $npath
         ' \
@@ -188,7 +188,7 @@ parse_and_generate() {
   REALITY_FLOW=$(echo "$REALITY_INBOUND" | jq -r '.settings.clients[0].flow')
   REALITY_PATH=$(echo "$REALITY_INBOUND" | jq -r '.streamSettings.xhttpSettings.path')
   REALITY_PBK=$(echo "$REALITY_INBOUND" | jq -r '.streamSettings.realitySettings.publicKey')
-  REALITY_SID=$(echo "$REALITY_INBOUND" | jq -r '.streamSettings.realitySettings.shortId[0]')
+  REALITY_SID=$(echo "$REALITY_INBOUND" | jq -r '.streamSettings.realitySettings.shortIds[0]')
   REALITY_SNI=$(echo "$REALITY_INBOUND" | jq -r '.streamSettings.realitySettings.serverNames[0]')
 
   # Extract Nginx-proxied parameters

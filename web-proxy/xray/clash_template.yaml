@@ -123,8 +123,8 @@ proxy-providers:
         client-fingerprint: chrome
         servername: {{REALITY_SNI}}
         reality-opts:
-        public-key: {{REALITY_PBK}}
-        short-id: {{REALITY_SID}}
+          public-key: {{REALITY_PBK}}
+          short-id: {{REALITY_SID}}
         xhttp-opts:
           path: "{{REALITY_PATH}}"
       - name: "{{NODE_NAME_NGINX}}"
