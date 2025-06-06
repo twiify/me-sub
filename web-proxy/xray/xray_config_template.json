@@ -10,7 +10,7 @@
       "settings": {
         "clients": [
           {
-            "id": "7de43a293e8095f1ea86aefe1b6a71a6",
+            "id": "{{REALITY_UUID}}",
             "flow": "xtls-rprx-vision"
           }
         ],
@@ -24,12 +24,12 @@
           "target": "/dev/shm/nginx.sock",
           "xver": 1,
           "serverNames": [
-            "example.com"
+            "{{PROXY_DOMAIN}}"
           ],
-          "privateKey": "yCNk1dTZbRoj0cKyNx17aIUGXgn5aN0IudUbSX6RuX4",
-          "publicKey": "INcoCp5qY59LtLr5ELdqQzA1XQByNKzzkPDYa-Zo4GI",
+          "privateKey": "{{PRIVATE_KEY}}",
+          "publicKey": "{{PUBLIC_KEY}}",
           "shortIds": [
-            "913f0a04135f7d3c"
+            "{{SHORT_ID}}"
           ]
         }
       },
