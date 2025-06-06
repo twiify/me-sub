@@ -84,10 +84,8 @@ deploy_new_proxy_site() {
         log_message "为 $SERVER_NAME 启用 SSL."
         new_config_content=$(
             echo "$template_content" |
-                sed "s|server_name example.com;|server_name $SERVER_NAME;|g" |
-                sed "s|ssl_certificate /etc/nginx/ssl/example.com/full.pem;|ssl_certificate $NGINX_SSL_CERT_BASE_PATH_IN_CONTAINER/$SERVER_NAME/full.pem;|g" |
-                sed "s|ssl_certificate_key /etc/nginx/ssl/example.com/key.pem;|ssl_certificate_key $NGINX_SSL_CERT_BASE_PATH_IN_CONTAINER/$SERVER_NAME/key.pem;|g" |
-                sed "s|set \$upstream_server http://example1.com:80;|set \$upstream_server $UPSTREAM_ADDR;|g"
+                sed "s|{{DOMAIN}}|$SERVER_NAME|g" |
+                sed "s|{{UPSTREAM_ADDR}}|$UPSTREAM_ADDR|g"
         )
         log_message "请确保 $SERVER_NAME 的 SSL 证书已通过 autossl.sh 或其他方式签发并放置在 $NGINX_SSL_CERT_BASE_PATH_IN_CONTAINER/$SERVER_NAME/"
     else

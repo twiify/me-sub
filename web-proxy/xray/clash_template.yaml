@@ -1,0 +1,347 @@
+# mihomo (Clash Meta) 配置
+# 虚空终端 (Clash Meta) Docs 地址: https://wiki.metacubex.one
+
+# ---------------------------------------------------
+## 全局配置
+
+# 运行模式
+# rule: 规则
+# global: 全局
+# direct: 全局直连
+mode: rule
+# ipv6 支持
+ipv6: true
+# 日志记录级别: silent, debug, info, warning, error
+log-level: info
+# 允许局域网连接
+allow-lan: true
+# socks5/http 端口
+mixed-port: 7890
+# 透明代理端口
+redir-port: 7893
+tproxy-port: 7894
+# adnroid
+# tproxy-port: 1536
+# Meta 内核特性 https://wiki.metacubex.one/config/general
+# 统一延迟
+# 更换延迟计算方式,去除握手等额外延迟
+unified-delay: true
+# TCP 并发
+# 同时对所有ip进行连接，返回延迟最低的地址
+tcp-concurrent: true
+# 外部控制端口
+external-controller: 127.0.0.1:9090
+external-ui-url: "https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip"
+external-ui: ./dashbord/Zash/
+secret: "" # 面板访问密码
+# geo文件使用模式 true -> dat, false -> mmdb
+geodata-mode: true
+geo-auto-update: true
+geo-update-interval: 48
+# Geo 数据库下载地址
+# 源地址 https://github.com/MetaCubeX/meta-rules-dat
+geox-url:
+  geoip: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
+  geosite: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
+  mmdb: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb"
+
+# 进程匹配模式
+# 路由器上请设置为 off
+# always 开启，强制匹配所有进程
+# strict 默认，由 Clash 判断是否开启
+# off 不匹配进程，推荐在路由器上使用此模式
+find-process-mode: strict
+
+# 缓解移动设备耗电问题
+# https://github.com/vernesong/OpenClash/issues/2614
+keep-alive-interval: 1800
+
+# 全局客户端指纹
+global-client-fingerprint: random # 随机指纹
+
+# 缓存
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+# 自动同步时间以防止时间不准导致无法正常联网
+ntp:
+  enable: true
+  # 是否同步至系统时间，需要 root/管理员权限
+  write-to-system: false
+  server: time.apple.com
+  port: 123
+  interval: 30
+
+# --------------------------------------------------
+## 分组
+
+pr:
+  &pr {
+    type: select,
+    proxies:
+      [节点选择, 自动选择, DIRECT, 香港, 台湾, 日本, 新加坡, 美国, 其它地区],
+  }
+# 延迟检测 URL
+p: &p # http/file/inline
+  type: http
+  # 自动更新订阅时间，单位为秒
+  interval: 3600
+  health-check:
+    enable: true
+    url: https://cp.cloudflare.com
+    # 节点连通性检测时间，单位为秒
+    interval: 300
+    # 节点超时延迟，单位为毫秒
+    timeout: 1000
+    # 节点自动切换差值，单位为毫秒
+    tolerance: 100
+
+# 使用的订阅
+use: &use # 如果不希望自动切换请将下面两行注释对调
+  type: select
+  # type: url-test
+  use:
+    - sub1
+    # - local
+
+# 代理集合
+# 对于订阅来说，path 为选填项，但建议启用
+# 本地配置可以只填 path
+proxy-providers:
+  sub1:
+    type: inline
+    payload:
+      proxies:
+        - name: "{{NODE_NAME_REALITY}}"
+          type: vless
+          server: {{DOMAIN}}
+          port: {{REALITY_PORT}}
+          uuid: {{REALITY_UUID}}
+          network: xhttp
+          tls: true
+          flow: {{REALITY_FLOW}}
+          client-fingerprint: chrome
+          servername: {{REALITY_SNI}}
+          reality-opts:
+          public-key: {{REALITY_PBK}}
+          short-id: {{REALITY_SID}}
+          xhttp-opts:
+            path: "{{REALITY_PATH}}"
+        - name: "{{NODE_NAME_NGINX}}"
+          type: vless
+          server: {{DOMAIN}}
+          port: 443
+          uuid: {{NGINX_UUID}}
+          network: xhttp
+          tls: true
+          client-fingerprint: chrome
+          servername: {{DOMAIN}}
+          alpn: [h2]
+          xhttp-opts:
+            path: "{{NGINX_PATH}}"
+    # 如需要为该订阅组节点添加前缀，取消下面两行注释
+    # override:
+    # additional-prefix: "[订阅一]"
+
+    # 如需要为该订阅组节点添加前缀，取消下面两行注释
+    # override:
+    # additional-prefix: "[订阅二]"
+
+  # local:
+  # <<: *p
+  # type: file
+  # path: ./proxy_provider/本地配置.yaml
+  # 如需要为该订阅组节点添加前缀，取消下面两行注释
+  # override:
+  # additional-prefix: "[本地配置]"
+
+# ---------------------------------------------
+## dns 设置
+
+# 已配置 ipv6
+dns:
+  enable: true
+  listen: :1053
+  ipv6: true
+  # 路由器个人建议使用 redir-host 以最佳兼容性
+  # 其他设备可以使用 fake-ip
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "+.lan"
+    - "+.local"
+    - "localhost.ptlogin2.qq.com"
+    - "www.msftncsi.com"
+    - "www.msftconnecttest.com"
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+    - 114.114.114.114
+    - "[2402:4e00::]"
+    - "[2400:3200::1]"
+  nameserver:
+    - "tls://8.8.4.4#dns"
+    - "tls://1.0.0.1#dns"
+    - "tls://[2001:4860:4860::8844]#dns"
+    - "tls://[2606:4700:4700::1001]#dns"
+  fallback:
+    - tls://1.1.1.1:853
+    - tls://8.8.8.8:853
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+  nameserver-policy:
+    "geosite:cn,private":
+      - https://doh.pub/dns-query
+      - https://dns.alidns.com/dns-query
+
+# 域名嗅探
+sniffer:
+  enable: true
+  sniff:
+    TLS:
+      ports: [443, 8443]
+    QUIC:
+      ports: [443, 8443]
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+
+# tun 模式
+tun:
+  enable: false # enable 'true'
+  # tun模式堆栈，可选 system, gvisor, mixed(推荐)
+  # 若开启防火墙，则需要放行clash或者不使用system/mixed
+  stack: mixed
+  device: utun
+  # dns劫持，windows/macos无法自动劫持到局域网dns请求，android在开启私人dns后无法自动劫持dns请求
+  dns-hijack:
+    - "any:53"
+    - "tcp://any:53"
+  # 自动设置全局路由流量到tun
+  auto-route: true
+  # 自动选择出口网卡接口
+  auto-detect-interface: true
+
+## WRAP代理设置
+# proxies:
+# - name: "WARP"
+#   type: wireguard
+#   server: engage.cloudflareclient.com
+#   port: 2408
+#   ip: "172.16.0.2/32"
+#   ipv6: "2606::1/128"        # 自行替换
+#   private-key: "private-key" # 自行替换
+#   public-key: "public-key"   # 自行替换
+#   udp: true
+#   reserved: "abba"           # 自行替换
+#   mtu: 1280
+#   dialer-proxy: "WARP前置"
+#   remote-dns-resolve: true
+#   dns:
+#     - https://dns.cloudflare.com/dns-query
+
+# 代理组
+proxy-groups:
+  # 使用 WARP 需要手动在下方的 proxies 字段内添加 WARP
+  # 例如 [WARP, 全部节点, 自动选择, 香港, 台湾, 日本, 新加坡, 美国, 其它地区, DIRECT],
+  - {
+      name: 节点选择,
+      type: select,
+      proxies:
+        [全部节点, 自动选择, DIRECT, 香港, 台湾, 日本, 新加坡, 美国, 其它地区],
+    }
+  - { name: 全部节点, <<: *use }
+  - { name: 自动选择, <<: *use, tolerance: 2, type: url-test }
+  # 这里的 dns 指海外解析 dns 走的节点，一般跟随节点选择即可
+  - { name: dns, <<: *pr }
+  # WARP 配置链式出站
+  # - { name: WARP前置, <<: *pr, exclude-type: "wireguard" }
+
+  - { name: 广告拦截, type: select, proxies: [REJECT, DIRECT, 节点选择] }
+  - { name: AI服务, <<: *pr }
+  # Apple 推荐走全局直连
+  - { name: Apple, <<: *pr }
+  - { name: Google, <<: *pr }
+  - { name: Telegram, <<: *pr }
+  - { name: Twitter, <<: *pr }
+  - { name: Pixiv, <<: *pr }
+  - { name: ehentai, <<: *pr }
+  - { name: YouTube, <<: *pr }
+  - { name: Netflix, <<: *pr }
+  - { name: TikTok, <<: *pr }
+  - { name: Spotify, <<: *pr }
+  - { name: Github, <<: *pr }
+  - { name: Steam, <<: *pr }
+  - { name: OneDrive, <<: *pr }
+  - { name: 微软服务, <<: *pr }
+  # 其他就是所有规则没匹配到的
+  # 可以理解为 ACL4SSR 配置里的 漏网之鱼
+  # 换言之，其他走代理就是绕过中国大陆地址，不走就是 GFWList 模式
+  - { name: 漏网之鱼, <<: *pr }
+  # 分隔,下面是地区分组
+  - { name: 香港, <<: *use, filter: "(?i)港|hk|hongkong|hong kong" }
+  - { name: 台湾, <<: *use, filter: "(?i)台|tw|taiwan" }
+  - { name: 日本, <<: *use, filter: "(?i)日本|jp|japan" }
+  - { name: 美国, <<: *use, filter: "(?i)美|us|unitedstates|united states" }
+  - { name: 新加坡, <<: *use, filter: "(?i)(新|sg|singapore)" }
+  - {
+      name: 其它地区,
+      <<: *use,
+      filter: "(?i)^(?!.*(?:🇭🇰|🇯🇵|🇺🇸|🇸🇬|🇨🇳|港|hk|hongkong|台|tw|taiwan|日|jp|japan|新|sg|singapore|美|us|unitedstates)).*",
+    }
+
+# 规则订阅
+rule-providers:
+  AWAvenue-Ads:
+    type: http
+    behavior: domain
+    format: yaml
+    # path可为空(仅限clash.meta 1.15.0以上版本)
+    path: ./rule_provider/AWAvenue-Ads.yaml
+    url: "https://gcore.jsdelivr.net/gh/TG-Twilight/AWAvenue-Ads-Rule@main/Filters/AWAvenue-Ads-Rule-Clash.yaml"
+    interval: 600
+
+rules:
+  # 若需禁用 QUIC 请取消注释 QUIC 两条规则
+  # 防止 YouTube 等使用 QUIC 导致速度不佳, 禁用 443 端口 UDP 流量（不包括国内）
+  # - AND,(AND,(DST-PORT,443),(NETWORK,UDP)),(NOT,((GEOSITE,cn))),REJECT
+  # - AND,(AND,(DST-PORT,443),(NETWORK,UDP)),(NOT,((GEOIP,CN))),REJECT
+  - RULE-SET,AWAvenue-Ads,广告拦截
+  - GEOSITE,category-ads,广告拦截
+  - GEOSITE,category-ai-chat-!cn,AI服务
+  - GEOSITE,apple,Apple
+  - GEOSITE,apple-cn,Apple
+  - GEOSITE,ehentai,ehentai
+  - GEOSITE,github,Github
+  - GEOSITE,twitter,Twitter
+  - GEOSITE,youtube,YouTube
+  - GEOSITE,google,Google
+  - GEOSITE,google-cn,Google # Google CN 不走代理会导致香港等地区节点 Play Store 异常
+  - GEOSITE,telegram,Telegram
+  - GEOSITE,netflix,Netflix
+  - GEOSITE,tiktok,TikTok
+  - GEOSITE,spotify,Spotify
+  - GEOSITE,pixiv,Pixiv
+  - GEOSITE,steam,Steam
+  - GEOSITE,onedrive,OneDrive
+  - GEOSITE,microsoft,微软服务
+  - GEOSITE,geolocation-cn,DIRECT,no-resolve
+  - GEOSITE,cn,DIRECT,no-resolve
+  - GEOSITE,geolocation-!cn,漏网之鱼
+  - GEOIP,google,Google
+  - GEOIP,netflix,Netflix
+  - GEOIP,telegram,Telegram
+  - GEOIP,twitter,Twitter
+  - GEOIP,cn,DIRECT,no-resolve
+  # 绕过局域网地址
+  - IP-CIDR,10.0.0.0/8,DIRECT
+  - IP-CIDR,172.16.0.0/12,DIRECT
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR,100.64.0.0/10,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT
+  - MATCH,漏网之鱼

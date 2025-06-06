@@ -1,0 +1,68 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "listen": "0.0.0.0",
+      "port": 8443,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "62dd397ac2f56902c54912e16d21a7e3",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": {
+          "path": "/ce47e9bdf5edade7"
+        },
+        "realitySettings": {
+          "show": false,
+          "dest": "nginx:443",
+          "xver": 0,
+          "serverNames": [
+            "example.com"
+          ],
+          "privateKey": "WBXZAcQzAXftWbSggkEA7vlNVd1kaV8oPo0ITvHPu3o",
+          "publicKey": "EpOJbGRthVUO5ngzfD8PeIozD6cpro3j1dSixHI672o",
+          "shortId": [
+            "6d30f73eb9df1739"
+          ]
+        }
+      }
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10086,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "f5ec19b0de4fa3673cfd62319bb21ba5"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "none",
+        "xhttpSettings": {
+          "path": "/30bbe2f0ce423d61642aee3c",
+          "mode": "stream-up"
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    }
+  ]
+}

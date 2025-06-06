@@ -13,6 +13,8 @@ services:
       - ./nginx/sites:/etc/nginx/conf.d
       - ./nginx/ssl:/etc/nginx/ssl
       - ./nginx/html:/etc/nginx/html
+      - ./xray:/etc/xray
+      - ./xray/xray_generated_configs/xray_nginx.conf:/etc/nginx/conf.d/xray.conf
     labels:
       - sh.acme.autoload.domain=self-host
 
@@ -26,6 +28,15 @@ services:
     volumes:
       - ./acmeout:/acme.sh
       - /var/run/docker.sock:/var/run/docker.sock
+  
+  xray:
+    image: teddysun/xray:latest
+    container_name: xray
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./xray/xray_config.json:/etc/xray/config.json
 
 networks:
   default:
