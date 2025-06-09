@@ -7,11 +7,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 XRAY_DIR="${SCRIPT_DIR}/xray"
 NGINX_SITES_DIR="${SCRIPT_DIR}/nginx/sites"
 
-CONFIG_TEMPLATE_FILE="${XRAY_DIR}/xray_config_template.json"
-CONFIG_FILE="${XRAY_DIR}/xray_config.json"
+XRAY_TEMPLATE_FILE="${XRAY_DIR}/xray_config_template.json"
+XRAY_CONFIG_FILE="${XRAY_DIR}/xray_config.json"
 CLASH_TEMPLATE_FILE="${XRAY_DIR}/clash_template.yaml"
+XRAY_CLIENT_TEMPLATE_FILE="${XRAY_DIR}/xray_client_template.json"
 OUTPUT_DIR="${XRAY_DIR}/xray_generated_configs"
-PROFILE_FILE="${XRAY_DIR}/.xray_profile" # 用于存储域名和Token
+PROFILE_FILE="${XRAY_DIR}/.xray_profile"
 
 XRAY_CONTAINER_NAME="xray"
 NGINX_CONTAINER_NAME="nginx"
@@ -21,14 +22,31 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
 }
 
+check_yes() {
+    case $1 in
+    y | Y | Yes | yes | YES)
+        echo 1
+        ;;
+    *)
+        echo 0
+        ;;
+    esac
+}
+
 check_dependencies() {
-    if ! command -v jq &>/dev/null; then log_message "错误: jq 未安装。"; exit 1; fi
-    if ! command -v openssl &>/dev/null; then log_message "错误: openssl 未安装。"; exit 1; fi
+    if ! command -v jq &>/dev/null; then
+        log_message "错误: jq 未安装。"
+        exit 1
+    fi
+    if ! command -v openssl &>/dev/null; then
+        log_message "错误: openssl 未安装。"
+        exit 1
+    fi
 }
 
 reload_services() {
     read -p "是否立即重载 Nginx 和 Xray 服务? (yes/no): " RELOAD_CHOICE
-    if [[ "$RELOAD_CHOICE" != "yes" && "$RELOAD_CHOICE" != "y" ]]; then
+    if [[ "$(check_yes $RELOAD_CHOICE)" != "1" ]]; then
         log_message "操作已取消。请稍后手动重载服务以使更改生效。"
         return
     fi
@@ -70,15 +88,40 @@ setup_config() {
 
     if [ "$is_initial_setup" = true ]; then
         echo "--- 初始化 Xray 配置 ---"
-        if [ ! -f "$CONFIG_TEMPLATE_FILE" ]; then log_message "错误: Xray 模板文件 '$CONFIG_TEMPLATE_FILE' 不存在。"; return 1; fi
-        read -p "请输入您的代理主域名 (例如: proxy.example.com): " PROXY_DOMAIN
-        if [ -z "$PROXY_DOMAIN" ]; then log_message "错误: 代理主域名不能为空。"; return 1; fi
-        SUBSCRIPTION_TOKEN=$(openssl rand -hex 16)
-        echo "PROXY_DOMAIN=\"$PROXY_DOMAIN\"" > "$PROFILE_FILE"
-        echo "SUBSCRIPTION_TOKEN=\"$SUBSCRIPTION_TOKEN\"" >> "$PROFILE_FILE"
+        if [ ! -f "$XRAY_TEMPLATE_FILE" ]; then
+            log_message "错误: Xray 模板文件 '$XRAY_TEMPLATE_FILE' 不存在。"
+            return 1
+        fi
+        read -p "请输入您的订阅主域名 (例如: sub.example.com): " SUB_DOMAIN
+        if [ -z "$SUB_DOMAIN" ]; then
+            log_message "错误: 订阅主域名不能为空。"
+            return 1
+        fi
+        read -p "请输入您的 xhttp 路径 (例如 /my-secret-path): " XHTTP_PATH
+        if [ -z "$XHTTP_PATH" ]; then
+            XHTTP_PATH="/$(openssl rand -hex 8)"
+            log_message "xhttp 路径为空, 使用随机路径: ${XHTTP_PATH}"
+        fi
+        # 确保路径以 / 开头
+        if [[ ! "$XHTTP_PATH" == /* ]]; then XHTTP_PATH="/$XHTTP_PATH"; fi
+
+        read -p "请输入您 Reality 偷窃域名 (直接回车则使用订阅域名 '$SUB_DOMAIN'): " REALITY_TARGET_DOMAIN
+        if [ -z "$REALITY_TARGET_DOMAIN" ]; then
+            log_message "未输入伪装目标，将使用主域名 '$SUB_DOMAIN' 作为伪装目标。"
+            REALITY_TARGET_DOMAIN="$SUB_DOMAIN"
+        fi
+
+        SUB_TOKEN=$(openssl rand -hex 16)
+        echo "SUB_DOMAIN=\"$SUB_DOMAIN\"" >"$PROFILE_FILE"
+        echo "SUB_TOKEN=\"$SUB_TOKEN\"" >>"$PROFILE_FILE"
+        echo "XHTTP_PATH=\"$XHTTP_PATH\"" >>"$PROFILE_FILE"
+        echo "REALITY_TARGET_DOMAIN=\"$REALITY_TARGET_DOMAIN\"" >>"$PROFILE_FILE"
     else
         echo "--- 更新 Xray 凭证 ---"
-        if [ ! -f "$PROFILE_FILE" ]; then log_message "错误: 配置文件 '$PROFILE_FILE' 不存在，请先初始化。"; return 1; fi
+        if [ ! -f "$PROFILE_FILE" ]; then
+            log_message "错误: 配置文件 '$PROFILE_FILE' 不存在，请先初始化。"
+            return 1
+        fi
         source "$PROFILE_FILE"
     fi
 
@@ -88,25 +131,61 @@ setup_config() {
     new_uuid=$(openssl rand -hex 16)
     local new_short_id
     new_short_id=$(openssl rand -hex 8)
+    # 核心：动态构建 serverNames 列表
+    log_message "正在扫描 Nginx 站点目录以构建 serverNames 列表..."
+    local server_names_list=()
+    # 1. 添加主代理域名
+    server_names_list+=("$SUB_DOMAIN" "$REALITY_TARGET_DOMAIN")
+    # 2. 扫描并从文件内容中提取域名
+    if [ -d "$NGINX_SITES_DIR" ]; then
+        # 使用 grep 和 awk 从 .conf 文件中提取所有 server_name
+        # -R 递归搜索, -h 不显示文件名, -o 只输出匹配的部分, -E 使用扩展正则表达式
+        # awk 用于处理 server_name 指令后的所有域名，并替换分号
+        local extracted_domains
+        extracted_domains=$(grep -rhoE 'server_name\s+[^;]+;' "$NGINX_SITES_DIR"/*.conf 2>/dev/null | awk '{for (i=2; i<=NF; i++) print $i}' | sed 's/;//g')
+
+        # 将提取的域名添加到列表中
+        for domain in $extracted_domains; do
+            # 避免添加 subscription 域名，因为它通常与主域名相同或由脚本管理
+            if [ "$domain" != "subscription" ] && [ "$domain" != "$SUB_DOMAIN" ] && [ "$domain" != "$REALITY_TARGET_DOMAIN" ]; then
+                server_names_list+=("$domain")
+            fi
+        done
+    fi
+
+    # 将 bash 数组转换为 jq 可接受的 JSON 数组字符串
+    local server_names_json_array
+    server_names_json_array=$(printf '%s\n' "${server_names_list[@]}" | jq -R . | jq -s 'unique')
+    log_message "构建的 serverNames 列表: $server_names_json_array"
+
+    # 更新 jq 命令
+    source "$PROFILE_FILE" # 确保加载了所有变量
     log_message "正在从模板创建新的 xray_config.json (使用 jq)..."
     jq \
-      --arg ruuid "$new_uuid" \
-      --arg rflow "xtls-rprx-vision" \
-      --arg domain "$PROXY_DOMAIN" \
-      --arg pvk "$PRIVATE_KEY" \
-      --arg pbk "$PUBLIC_KEY" \
-      --arg sid "$new_short_id" \
-      '
-      (.inbounds[0].settings.clients[0].id) = $ruuid |
-      (.inbounds[0].settings.clients[0].flow) = $rflow |
-      (.inbounds[0].streamSettings.realitySettings.serverNames) = [$domain] |
-      (.inbounds[0].streamSettings.realitySettings.privateKey) = $pvk |
-      (.inbounds[0].streamSettings.realitySettings.publicKey) = $pbk |
-      (.inbounds[0].streamSettings.realitySettings.shortIds) = [$sid]
-      ' \
-      "$CONFIG_TEMPLATE_FILE" > "$CONFIG_FILE"
+        --arg ruuid "$new_uuid" \
+        --argjson domains "$server_names_json_array" \
+        --arg pvk "$PRIVATE_KEY" \
+        --arg pbk "$PUBLIC_KEY" \
+        --arg sid "$new_short_id" \
+        --arg xpath "$XHTTP_PATH" \
+        --arg rtarget "$REALITY_TARGET_DOMAIN" \
+        '
+     # 更新 TCP-REALITY 入站 (inbounds[0])
+     (.inbounds[0].settings.clients[0].id) = $ruuid |
+     (.inbounds[0].streamSettings.realitySettings.serverNames) = $domains |
+     (.inbounds[0].streamSettings.realitySettings.privateKey) = $pvk |
+     (.inbounds[0].streamSettings.realitySettings.publicKey) = $pbk |
+     (.inbounds[0].streamSettings.realitySettings.shortIds) = ["", $sid] |
+     (.inbounds[0].streamSettings.realitySettings.target) = ($rtarget + ":443") |
+     (.inbounds[0].settings.fallbacks[1].path) = $xpath |
 
-    log_message "Xray 配置文件 '$CONFIG_FILE' 创建/更新成功。"
+     # 更新 xhttp 入站 (inbounds[1])
+     (.inbounds[1].settings.clients[0].id) = $ruuid |
+     (.inbounds[1].streamSettings.xhttpSettings.path) = $xpath
+     ' \
+        "$XRAY_TEMPLATE_FILE" >"$XRAY_CONFIG_FILE"
+
+    log_message "Xray 配置文件 '$XRAY_CONFIG_FILE' 创建/更新成功。"
     generate_subscription_service
     reload_services
 }
@@ -114,71 +193,89 @@ setup_config() {
 # 函数：生成订阅服务和文件
 generate_subscription_service() {
     echo "--- 生成订阅文件和 Nginx 服务 ---"
-    if [ ! -f "$CONFIG_FILE" ] || [ ! -f "$PROFILE_FILE" ]; then
+    if [ ! -f "$XRAY_CONFIG_FILE" ] || [ ! -f "$PROFILE_FILE" ]; then
         log_message "错误: 配置文件不存在。请先初始化。"
         return 1
     fi
     source "$PROFILE_FILE"
 
     local reality_inbound
-    reality_inbound=$(jq '.inbounds[0]' "$CONFIG_FILE")
+    reality_inbound=$(jq '.inbounds[0]' "$XRAY_CONFIG_FILE")
     local uuid
     uuid=$(echo "$reality_inbound" | jq -r '.settings.clients[0].id')
+    local flow
+    flow=$(echo "$reality_inbound" | jq -r '.settings.client[0].flow')
     local pbk
     pbk=$(echo "$reality_inbound" | jq -r '.streamSettings.realitySettings.publicKey')
     local sid
-    sid=$(echo "$reality_inbound" | jq -r '.streamSettings.realitySettings.shortIds[0]')
-    local flow
-    flow=$(echo "$reality_inbound" | jq -r '.settings.clients[0].flow')
-    local node_name="Xray-REALITY-${PROXY_DOMAIN}"
-    local vless_link="vless://${uuid}@${PROXY_DOMAIN}:443?security=reality&sni=${PROXY_DOMAIN}&fp=chrome&pbk=${pbk}&sid=${sid}&flow=${flow}#${node_name}"
+    sid=$(echo "$reality_inbound" | jq -r '.streamSettings.realitySettings.shortIds[1]')
+    local node_name="Xray-REALITY-${SUB_DOMAIN}"
+
+    local vless_link="vless://${uuid}@${SUB_DOMAIN}:443?security=reality&sni=${REALITY_TARGET_DOMAIN}&fp=chrome&pbk=${pbk}&sid=${sid}&flow=${flow}#${node_name}"
 
     mkdir -p "$OUTPUT_DIR"
-    echo "$vless_link" > "${OUTPUT_DIR}/vless.txt"
-    
+    echo "$vless_link" >"${OUTPUT_DIR}/vless.txt"
+
     if [ -f "$CLASH_TEMPLATE_FILE" ]; then
         local clash_content
         clash_content=$(sed -e "s/{{NODE_NAME_REALITY}}/${node_name}/g" \
-            -e "s|{{DOMAIN}}|${PROXY_DOMAIN}|g" \
+            -e "s|{{DOMAIN}}|${SUB_DOMAIN}|g" \
             -e "s|{{REALITY_UUID}}|${uuid}|g" \
             -e "s|{{REALITY_FLOW}}|${flow}|g" \
-            -e "s|{{REALITY_SNI}}|${PROXY_DOMAIN}|g" \
+            -e "s|{{REALITY_SNI}}|${REALITY_TARGET_DOMAIN}|g" \
             -e "s|{{REALITY_PBK}}|${pbk}|g" \
             -e "s|{{REALITY_SID}}|${sid}|g" \
             "$CLASH_TEMPLATE_FILE")
-        echo "$clash_content" > "${OUTPUT_DIR}/clash.yaml"
+        echo "$clash_content" >"${OUTPUT_DIR}/clash.yaml"
+    fi
+
+    if [ -f "$XRAY_CLIENT_TEMPLATE_FILE" ]; then
+        local xray_client_content
+        xray_client_content=$(sed -e "s|{{CLIENT_UUID}}|${uuid}|g" \
+            -e "s|{{CLIENT_FLOW}}|${flow}|g" \
+            -e "s|{{REALITY_PBK}}|${pub}|g" \
+            -e "s|{{REALITY_SID}}|${sid}|g" \
+            -e "s|{{XHTTP_PATH}}|${XHTTP_PATH}|g" \
+        "$XRAY_CLIENT_TEMPLATE_FILE")
+        echo "$xray_client_content" >"${OUTPUT_DIR}/xray_outbound_template.json"
     fi
 
     # 生成 Nginx 订阅服务器配置
-    local sub_config_file="${NGINX_SITES_DIR}/subscription.conf"
-    log_message "正在生成 Nginx 订阅配置文件: $sub_config_file"
-    cat > "$sub_config_file" << EOF
+    local sub_XRAY_CONFIG_FILE="${NGINX_SITES_DIR}/subscription.conf"
+    log_message "正在生成 Nginx 订阅配置文件: $sub_XRAY_CONFIG_FILE"
+    cat >"$sub_XRAY_CONFIG_FILE" <<-EOL
 server {
     listen unix:/dev/shm/nginx.sock ssl proxy_protocol;
     http2 on;
-    server_name $PROXY_DOMAIN;
+    server_name $SUB_DOMAIN;
 
-    ssl_certificate /etc/nginx/ssl/$PROXY_DOMAIN/full.pem;
-    ssl_certificate_key /etc/nginx/ssl/$PROXY_DOMAIN/key.pem;
+    ssl_certificate /etc/nginx/ssl/$SUB_DOMAIN/full.pem;
+    ssl_certificate_key /etc/nginx/ssl/$SUB_DOMAIN/key.pem;
 
-    location /$SUBSCRIPTION_TOKEN/vless {
+    location /$SUB_TOKEN/vless {
         alias /var/www/subs/vless.txt;
         default_type text/plain;
     }
 
-    location /$SUBSCRIPTION_TOKEN/clash {
+    location /$SUB_TOKEN/clash {
         alias /var/www/subs/clash.yaml;
         default_type application/x-yaml;
+    }
+
+    location /$SUB_TOKEN/xray_template {
+        alias /var/www/subs/xray_outbound_template.json
+        default_type text/plain;
     }
 
     location / {
         return 404; # 根目录返回404以增加安全性
     }
 }
-EOF
+EOL
     echo "--- 订阅信息 ---"
-    echo "VLESS 订阅 URL: https://${PROXY_DOMAIN}/${SUBSCRIPTION_TOKEN}/vless"
-    echo "Clash 订阅 URL: https://${PROXY_DOMAIN}/${SUBSCRIPTION_TOKEN}/clash"
+    echo "VLESS 订阅 URL: https://${SUB_DOMAIN}/${SUB_TOKEN}/vless"
+    echo "Clash 订阅 URL: https://${SUB_DOMAIN}/${SUB_TOKEN}/clash"
+    echo "Xray 客户端模板: https://${SUB_DOMAIN}/${SUB_TOKEN}/xray_template"
     echo "------------------"
 }
 
@@ -199,12 +296,13 @@ show_main_menu() {
         case $choice in
         1) setup_config true ;;
         2) setup_config false ;;
-        3) 
+        3)
             if [ -f "$PROFILE_FILE" ]; then
                 source "$PROFILE_FILE"
                 echo "--- 订阅信息 ---"
-                echo "VLESS 订阅 URL: https://${PROXY_DOMAIN}/${SUBSCRIPTION_TOKEN}/vless"
-                echo "Clash 订阅 URL: https://${PROXY_DOMAIN}/${SUBSCRIPTION_TOKEN}/clash"
+                echo "VLESS 订阅 URL: https://${SUB_DOMAIN}/${SUB_TOKEN}/vless"
+                echo "Clash 订阅 URL: https://${SUB_DOMAIN}/${SUB_TOKEN}/clash"
+                echo "Xray 客户端模板: https://${SUB_DOMAIN}/${SUB_TOKEN}/xray_template"
                 echo "------------------"
             else
                 log_message "尚未初始化，无订阅链接。"

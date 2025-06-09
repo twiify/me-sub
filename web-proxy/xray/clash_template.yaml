@@ -117,10 +117,10 @@ proxy-providers:
         server: {{DOMAIN}}
         port: 443
         uuid: {{REALITY_UUID}}
+        flow: {{REALITY_FLOW}}
         network: tcp
         tls: true
         udp: true
-        flow: {{REALITY_FLOW}}
         client-fingerprint: chrome
         servername: {{REALITY_SNI}}
         reality-opts:

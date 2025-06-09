@@ -10,35 +10,93 @@
       "settings": {
         "clients": [
           {
-            "id": "7de43a293e8095f1ea86aefe1b6a71a6",
+            "id": "a1a86c3721a8c28512fbc807cac36f3c",
             "flow": "xtls-rprx-vision"
           }
         ],
-        "decryption": "none"
+        "decryption": "none",
+        "fallbacks": [
+          {
+            "dest": "/dev/shm/nginx.sock",
+            "xver": 1
+          },
+          {
+            "path": "/0f5a56aecf0a256f",
+            "dest": "@xhttp",
+            "xver": 0
+          }
+        ]
       },
       "streamSettings": {
-        "network": "tcp",
+        "network": "raw",
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "target": "/dev/shm/nginx.sock",
+          "target": "apple.com:443",
           "xver": 1,
           "serverNames": [
-            "example.com"
+            "apple.com",
+            "sub.example.com"
           ],
-          "privateKey": "yCNk1dTZbRoj0cKyNx17aIUGXgn5aN0IudUbSX6RuX4",
-          "publicKey": "INcoCp5qY59LtLr5ELdqQzA1XQByNKzzkPDYa-Zo4GI",
+          "privateKey": "8I_IXxPcgrUkj7CVk417YyCMCMt7IJqckbz9sF0vf38",
+          "publicKey": "m3IGwq1jKjiwG-qgHfZqZJbmlA6Tlk1MgTr8mNBNaUU",
           "shortIds": [
-            "913f0a04135f7d3c"
+            "",
+            "2f20436fc7caff78"
           ]
+        },
+        "sockopt": {
+          "tcpFastOpen": true,
+          "tcpcongestion": "bbr",
+          "tcpNoDelay": true
         }
       },
+      "tag": "REALITY_IN",
       "sniffing": {
         "enabled": true,
         "destOverride": [
           "http",
-          "tls"
+          "tls",
+          "quic"
+        ],
+        "metadataOnly": false,
+        "routeOnly": true
+      }
+    },
+    {
+      "listen": "@xhttp",
+      "protocol": "vless",
+      "settings": {
+        "decryption": "none",
+        "clients": [
+          {
+            "id": "a1a86c3721a8c28512fbc807cac36f3c"
+          }
         ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "host": "",
+          "path": "/0f5a56aecf0a256f",
+          "mode": "auto"
+        },
+        "sockopt": {
+          "tcpFastOpen": true,
+          "tcpcongestion": "bbr",
+          "tcpNoDelay": true
+        }
+      },
+      "tag": "XHTTP_IN",
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
+        "metadataOnly": false,
+        "routeOnly": true
       }
     }
   ],
