@@ -17,12 +17,7 @@
         "decryption": "none",
         "fallbacks": [
           {
-            "dest": "/dev/shm/nginx.sock",
-            "xver": 1
-          },
-          {
-            "path": "{{XHTTP_PATH}}",
-            "dest": "@xhttp",
+            "dest": "/dev/shm/xhttp_upload.sock",
             "xver": 0
           }
         ]
@@ -32,7 +27,7 @@
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "target": "{{REALITY_TARGET_DOMAIN}}",
+          "target": "/dev/shm/nginx.sock",
           "xver": 1,
           "serverNames": ["{{SUB_DOMAIN}}"],
           "privateKey": "{{REALITY_PRK}}",
@@ -54,7 +49,7 @@
       }
     },
     {
-      "listen": "@xhttp",
+      "listen": "/dev/shm/xhttp_upload.sock,0666",
       "protocol": "vless",
       "settings": {
         "decryption": "none",

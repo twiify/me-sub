@@ -10,19 +10,14 @@
       "settings": {
         "clients": [
           {
-            "id": "a1a86c3721a8c28512fbc807cac36f3c",
+            "id": "dd95d9bfcea8c40dacc830e309a53c01",
             "flow": "xtls-rprx-vision"
           }
         ],
         "decryption": "none",
         "fallbacks": [
           {
-            "dest": "/dev/shm/nginx.sock",
-            "xver": 1
-          },
-          {
-            "path": "/0f5a56aecf0a256f",
-            "dest": "@xhttp",
+            "dest": "/dev/shm/xhttp_upload.sock",
             "xver": 0
           }
         ]
@@ -32,17 +27,17 @@
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "target": "apple.com:443",
+          "target": "/dev/shm/nginx.sock",
           "xver": 1,
           "serverNames": [
-            "apple.com",
+            "sb.example.com",
             "sub.example.com"
           ],
-          "privateKey": "8I_IXxPcgrUkj7CVk417YyCMCMt7IJqckbz9sF0vf38",
-          "publicKey": "m3IGwq1jKjiwG-qgHfZqZJbmlA6Tlk1MgTr8mNBNaUU",
+          "privateKey": "UFLUN0xvxdw4RBsj-DdJQUSHBtPCoAdMBu6Axx2JwHk",
+          "publicKey": "vlzamHvgKFkbvDOlhPk-EU92_az8By0b_liuVgDi8mg",
           "shortIds": [
             "",
-            "2f20436fc7caff78"
+            "7703cfee43c5aa6d"
           ]
         },
         "sockopt": {
@@ -64,13 +59,13 @@
       }
     },
     {
-      "listen": "@xhttp",
+      "listen": "/dev/shm/xhttp_upload.sock,0666",
       "protocol": "vless",
       "settings": {
         "decryption": "none",
         "clients": [
           {
-            "id": "a1a86c3721a8c28512fbc807cac36f3c"
+            "id": "dd95d9bfcea8c40dacc830e309a53c01"
           }
         ]
       },
@@ -78,7 +73,7 @@
         "network": "xhttp",
         "xhttpSettings": {
           "host": "",
-          "path": "/0f5a56aecf0a256f",
+          "path": "/1231d8e63cd63b0e",
           "mode": "auto"
         },
         "sockopt": {

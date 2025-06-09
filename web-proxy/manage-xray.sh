@@ -105,10 +105,10 @@ setup_config() {
         # 确保路径以 / 开头
         if [[ ! "$XHTTP_PATH" == /* ]]; then XHTTP_PATH="/$XHTTP_PATH"; fi
 
-        read -p "请输入您 Reality 偷窃域名 (直接回车则使用订阅域名 '$SUB_DOMAIN'): " REALITY_TARGET_DOMAIN
+        read -p "请输入伪装域名 (直接回车则使用域名 'wallhaven.cc'): " REALITY_TARGET_DOMAIN
         if [ -z "$REALITY_TARGET_DOMAIN" ]; then
-            log_message "未输入伪装目标，将使用主域名 '$SUB_DOMAIN' 作为伪装目标。"
-            REALITY_TARGET_DOMAIN="$SUB_DOMAIN"
+            log_message "未输入伪装目标，将使用域名 'wallhaven.cc' 作为伪装目标。"
+            REALITY_TARGET_DOMAIN="wallhaven.cc"
         fi
 
         SUB_TOKEN=$(openssl rand -hex 16)
@@ -135,19 +135,19 @@ setup_config() {
     log_message "正在扫描 Nginx 站点目录以构建 serverNames 列表..."
     local server_names_list=()
     # 1. 添加主代理域名
-    server_names_list+=("$SUB_DOMAIN" "$REALITY_TARGET_DOMAIN")
+    server_names_list+=("$SUB_DOMAIN")
     # 2. 扫描并从文件内容中提取域名
     if [ -d "$NGINX_SITES_DIR" ]; then
         # 使用 grep 和 awk 从 .conf 文件中提取所有 server_name
         # -R 递归搜索, -h 不显示文件名, -o 只输出匹配的部分, -E 使用扩展正则表达式
         # awk 用于处理 server_name 指令后的所有域名，并替换分号
         local extracted_domains
-        extracted_domains=$(grep -rhoE 'server_name\s+[^;]+;' "$NGINX_SITES_DIR"/*.conf 2>/dev/null | awk '{for (i=2; i<=NF; i++) print $i}' | sed 's/;//g')
+        extracted_domains=$(grep -rhoE '^[ \t]*server_name\s+[^;]+;' "$NGINX_SITES_DIR"/*.conf 2>/dev/null | awk '{for (i=2; i<=NF; i++) print $i}' | sed 's/;//g')
 
         # 将提取的域名添加到列表中
         for domain in $extracted_domains; do
             # 避免添加 subscription 域名，因为它通常与主域名相同或由脚本管理
-            if [ "$domain" != "subscription" ] && [ "$domain" != "$SUB_DOMAIN" ] && [ "$domain" != "$REALITY_TARGET_DOMAIN" ]; then
+            if [ "$domain" != "subscription" ] && [ "$domain" != "$SUB_DOMAIN" ]; then
                 server_names_list+=("$domain")
             fi
         done
@@ -168,7 +168,6 @@ setup_config() {
         --arg pbk "$PUBLIC_KEY" \
         --arg sid "$new_short_id" \
         --arg xpath "$XHTTP_PATH" \
-        --arg rtarget "$REALITY_TARGET_DOMAIN" \
         '
      # 更新 TCP-REALITY 入站 (inbounds[0])
      (.inbounds[0].settings.clients[0].id) = $ruuid |
@@ -176,8 +175,6 @@ setup_config() {
      (.inbounds[0].streamSettings.realitySettings.privateKey) = $pvk |
      (.inbounds[0].streamSettings.realitySettings.publicKey) = $pbk |
      (.inbounds[0].streamSettings.realitySettings.shortIds) = ["", $sid] |
-     (.inbounds[0].streamSettings.realitySettings.target) = ($rtarget + ":443") |
-     (.inbounds[0].settings.fallbacks[1].path) = $xpath |
 
      # 更新 xhttp 入站 (inbounds[1])
      (.inbounds[1].settings.clients[0].id) = $ruuid |
@@ -200,21 +197,28 @@ generate_subscription_service() {
     source "$PROFILE_FILE"
 
     local reality_inbound
+    local xhttp_inbound
     reality_inbound=$(jq '.inbounds[0]' "$XRAY_CONFIG_FILE")
+    xhttp_inbound=$(jq '.inbounds[1]' "$XRAY_CONFIG_FILE")
     local uuid
     uuid=$(echo "$reality_inbound" | jq -r '.settings.clients[0].id')
     local flow
-    flow=$(echo "$reality_inbound" | jq -r '.settings.client[0].flow')
+    flow=$(echo "$reality_inbound" | jq -r '.settings.clients[0].flow')
     local pbk
     pbk=$(echo "$reality_inbound" | jq -r '.streamSettings.realitySettings.publicKey')
     local sid
     sid=$(echo "$reality_inbound" | jq -r '.streamSettings.realitySettings.shortIds[1]')
-    local node_name="Xray-REALITY-${SUB_DOMAIN}"
+    local xpath
+    xpath=$(echo "$xhttp_inbound" | jq -r '.streamSettings.xhttpSettings.path')
 
-    local vless_link="vless://${uuid}@${SUB_DOMAIN}:443?security=reality&sni=${REALITY_TARGET_DOMAIN}&fp=chrome&pbk=${pbk}&sid=${sid}&flow=${flow}#${node_name}"
+    local node_name="Xray-XTLS-Reality"
+    local node_name1="Xray-XHTTP-Reality"
+
+    local vless_link="vless://${uuid}@${SUB_DOMAIN}:443?type=tcp&security=reality&sni=${SUB_DOMAIN}&fp=chrome&pbk=${pbk}&sid=${sid}&flow=${flow}#${node_name}"
+    local vless_link1="vless://${uuid}@${SUB_DOMAIN}:443?type=xhttp&security=reality&sni=${SUB_DOMAIN}&fp=chrome&pbk=${pbk}&sid=${sid}&path=${xpath}&mode=auto&host=${SUB_DOMAIN}#${node_name1}"
 
     mkdir -p "$OUTPUT_DIR"
-    echo "$vless_link" >"${OUTPUT_DIR}/vless.txt"
+    echo -e "${vless_link}\n${vless_link1}" >"${OUTPUT_DIR}/vless.txt"
 
     if [ -f "$CLASH_TEMPLATE_FILE" ]; then
         local clash_content
@@ -222,7 +226,7 @@ generate_subscription_service() {
             -e "s|{{DOMAIN}}|${SUB_DOMAIN}|g" \
             -e "s|{{REALITY_UUID}}|${uuid}|g" \
             -e "s|{{REALITY_FLOW}}|${flow}|g" \
-            -e "s|{{REALITY_SNI}}|${REALITY_TARGET_DOMAIN}|g" \
+            -e "s|{{REALITY_SNI}}|${SUB_DOMAIN}|g" \
             -e "s|{{REALITY_PBK}}|${pbk}|g" \
             -e "s|{{REALITY_SID}}|${sid}|g" \
             "$CLASH_TEMPLATE_FILE")
@@ -245,7 +249,7 @@ generate_subscription_service() {
     log_message "正在生成 Nginx 订阅配置文件: $sub_XRAY_CONFIG_FILE"
     cat >"$sub_XRAY_CONFIG_FILE" <<-EOL
 server {
-    listen unix:/dev/shm/nginx.sock ssl proxy_protocol;
+    listen unix:/dev/shm/nginx.sock ssl;
     http2 on;
     server_name $SUB_DOMAIN;
 
@@ -263,12 +267,44 @@ server {
     }
 
     location /$SUB_TOKEN/xray_template {
-        alias /var/www/subs/xray_outbound_template.json
+        alias /var/www/subs/xray_outbound_template.json;
         default_type text/plain;
     }
 
+    location $XHTTP_PATH {
+        grpc_buffer_size         16k;
+        grpc_socket_keepalive    on;
+        grpc_read_timeout        30m;
+        grpc_send_timeout        30m;
+        grpc_set_header Connection         "";
+        grpc_set_header X-Real-IP          \$remote_addr;
+        grpc_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
+        grpc_set_header X-Forwarded-Proto  \$scheme;
+        grpc_set_header X-Forwarded-Port   \$server_port;
+        grpc_set_header Host               \$host;
+        grpc_set_header X-Forwarded-Host   \$host;
+
+        grpc_pass unix:/dev/shm/xhttp_upload.sock;
+    }
+
+
     location / {
-        return 404; # 根目录返回404以增加安全性
+        resolver 127.0.0.11 valid=5s;
+        set \$upstream_service https://$REALITY_TARGET_DOMAIN;
+
+        proxy_pass \$upstream_service;
+
+        sub_filter                            \$proxy_host \$host;
+        sub_filter_once                       off;
+        
+        proxy_http_version                    1.1;
+        proxy_cache_bypass                    \$http_upgrade;
+        proxy_ssl_server_name                 on;
+
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOL
