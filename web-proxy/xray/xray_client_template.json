@@ -1,243 +1,343 @@
 {
-    "outbounds": [
+  "log": {
+    "loglevel": "warning"
+  },
+  "dns": {
+    "servers": [
       {
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "<vps_ip>",
-              "port": 443,
-              "users": [
-                {
-                  "id": "{{CLIENT_UUID}}",
-                  "encryption": "none",
-                  "flow": "{{CLIENT_FLOW}}"
-                }
-              ]
-            }
-          ]
-        },
-        "tag": "XTLS + Reality",
-        "streamSettings": {
-          "network": "raw",
-          "security": "reality",
-          "realitySettings": {
-            "show": false,
-            "serverName": "<a.vps.com>",
-            "fingerprint": "chrome",
-            "publicKey": "{{REALITY_PBK}}",
-            "shortId": "{{REALITY_SID}}",
-            "spiderX": "/"
-          },
-          "sockopt": {
-            "tcpFastOpen": true,
-            "tcpMptcp": true,
-            "tcpNoDelay": true
-          }
-        },
-        "mux": {
-          "enabled": true,
-          "concurrency": -1,
-          "xudpConcurrency": 16,
-          "xudpProxyUDP443": "reject"
-        }
+        "address": "1.1.1.1",
+        "domains": ["geosite:geolocation-!cn"]
       },
       {
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "<vps_ip>",
-              "port": 443,
-              "users": [
-                {
-                  "id": "{{CLIENT_UUID}}",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "tag": "XHTTP + Reality",
-        "streamSettings": {
-          "network": "xhttp",
-          "security": "reality",
-          "realitySettings": {
-            "show": false,
-            "serverName": "<a.vps.com>",
-            "fingerprint": "chrome",
-            "publicKey": "{{REALITY_PBK}}",
-            "shortId": "{{REALITY_SID}}",
-            "spiderX": "/"
-          },
-          "xhttpSettings": {
-            "host": "<a.vps.com>",
-            "path": "{{XHTTP_PATH}}",
-            "mode": "auto"
-          },
-          "sockopt": {
-            "tcpFastOpen": true,
-            "tcpMptcp": true,
-            "tcpNoDelay": true
-          }
-        }
+        "address": "223.5.5.5",
+        "domains": ["geosite:cn"],
+        "expectIPs": ["geoip:cn"]
       },
       {
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "<cnd_ip> | <cdn_domain>",
-              "port": 443,
-              "users": [
-                {
-                  "id": "{{CLIENT_UUID}}",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "tag": "CDN UP | Reality DOWN",
-        "streamSettings": {
-          "network": "xhttp",
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "<b.vps.com>",
-            "allowInsecure": false,
-            "alpn": ["h2"],
-            "fingerprint": "chrome"
-          },
-          "xhttpSettings": {
-            "host": "<b.vps.com>",
-            "path": "{{XHTTP_PATH}}",
-            "mode": "auto",
-            "extra": {
-              "downloadSettings": {
-                "address": "<vps_ip>",
-                "port": 443,
-                "network": "xhttp",
-                "security": "reality",
-                "realitySettings": {
-                  "show": false,
-                  "serverName": "<a.vps.com>",
-                  "fingerprint": "chrome",
-                  "publicKey": "{{REALITY_PBK}}",
-                  "shortId": "{{REALITY_SID}}",
-                  "spiderX": "/"
-                },
-                "xhttpSettings": {
-                  "host": "<a.vps.com>",
-                  "path": "{{XHTTP_PATH}}",
-                  "mode": "auto"
-                }
-              }
-            }
-          },
-          "sockopt": {
-            "tcpFastOpen": true,
-            "tcpMptcp": true,
-            "tcpNoDelay": true
-          }
-        }
+        "address": "114.114.114.114",
+        "domains": ["geosite:cn"]
+      },
+      "localhost"
+    ]
+  },
+  "fakedns": {
+    "enabled": true,
+    "ipPool": "198.18.0.0/15"
+  },
+  "inbounds": [
+    {
+      "tag": "socks-in",
+      "port": 10808,
+      "listen": "127.0.0.1",
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    },
+    {
+      "tag": "http-in",
+      "port": 10809,
+      "listen": "127.0.0.1",
+      "protocol": "http",
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "domain": ["geosite:category-ads-all"],
+        "outboundTag": "block"
       },
       {
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "<cnd_ip> | <cdn_doamin>",
-              "port": 443,
-              "users": [
-                {
-                  "id": "{{CLIENT_UUID}}",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "tag": "XHTTP + TLS + CDN",
-        "streamSettings": {
-          "network": "xhttp",
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "<b.vps.com>",
-            "allowInsecure": false,
-            "alpn": ["h2"],
-            "fingerprint": "chrome"
-          },
-          "xhttpSettings": {
-            "host": "<b.vps.com>",
-            "path": "{{XHTTP_PATH}}",
-            "mode": "auto"
-          },
-          "sockopt": {
-            "tcpFastOpen": true,
-            "tcpMptcp": true,
-            "tcpNoDelay": true
-          }
-        }
+        "type": "field",
+        "ip": ["geoip:private"],
+        "outboundTag": "direct"
       },
       {
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "<vps_ip>",
-              "port": 443,
-              "users": [
-                {
-                  "id": "{{CLIENT_UUID}}",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "tag": "REALITY UP | CDN DOWN",
-        "streamSettings": {
-          "network": "xhttp",
-          "security": "reality",
-          "realitySettings": {
-            "show": false,
-            "serverName": "<a.vps.com>",
-            "fingerprint": "chrome",
-            "publicKey": "{{REALITY_PBK}}",
-            "shortId": "{{REALITY_SID}}",
-            "spiderX": "/"
-          },
-          "xhttpSettings": {
-            "host": "<a.vps.com>",
-            "path": "{{XHTTP_PATH}}",
-            "mode": "auto",
-            "extra": {
-              "downloadSettings": {
-                "address": "<cnd_ip> | <cdn_doamin>",
-                "port": 443,
-                "network": "xhttp",
-                "security": "tls",
-                "tlsSettings": {
-                  "serverName": "<b.vps.com>",
-                  "allowInsecure": false,
-                  "alpn": ["h2"],
-                  "fingerprint": "chrome"
-                },
-                "xhttpSettings": {
-                  "host": "<b.vps.com>",
-                  "path": "{{XHTTP_PATH}}",
-                  "mode": "auto"
-                }
-              }
-            }
-          },
-          "sockopt": {
-            "tcpFastOpen": true,
-            "tcpMptcp": true,
-            "tcpNoDelay": true
-          }
-        }
+        "type": "field",
+        "domain": ["geosite:private"],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "ip": ["geoip:cn", "geoip:dns-cn"],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "domain": ["geosite:cn", "geosite:dns-cn"],
+        "outboundTag": "direct"
       }
     ]
-  }
-  
+  },
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "<vps_ip>",
+            "port": 443,
+            "users": [
+              {
+                "id": "{{CLIENT_UUID}}",
+                "encryption": "none",
+                "flow": "{{CLIENT_FLOW}}"
+              }
+            ]
+          }
+        ]
+      },
+      "tag": "XTLS + Reality",
+      "streamSettings": {
+        "network": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "serverName": "<a.vps.com>",
+          "fingerprint": "chrome",
+          "publicKey": "{{REALITY_PBK}}",
+          "shortId": "{{REALITY_SID}}",
+          "spiderX": "/"
+        },
+        "sockopt": {
+          "tcpFastOpen": true,
+          "tcpMptcp": true,
+          "tcpNoDelay": true
+        }
+      },
+      "mux": {
+        "enabled": true,
+        "concurrency": -1,
+        "xudpConcurrency": 16,
+        "xudpProxyUDP443": "reject"
+      }
+    },
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "<vps_ip>",
+            "port": 443,
+            "users": [
+              {
+                "id": "{{CLIENT_UUID}}",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "tag": "XHTTP + Reality",
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "serverName": "<a.vps.com>",
+          "fingerprint": "chrome",
+          "publicKey": "{{REALITY_PBK}}",
+          "shortId": "{{REALITY_SID}}",
+          "spiderX": "/"
+        },
+        "xhttpSettings": {
+          "host": "<a.vps.com>",
+          "path": "{{XHTTP_PATH}}",
+          "mode": "auto"
+        },
+        "sockopt": {
+          "tcpFastOpen": true,
+          "tcpMptcp": true,
+          "tcpNoDelay": true
+        }
+      }
+    },
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "<cnd_ip> | <cdn_domain>",
+            "port": 443,
+            "users": [
+              {
+                "id": "{{CLIENT_UUID}}",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "tag": "CDN UP | Reality DOWN",
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "<b.vps.com>",
+          "allowInsecure": false,
+          "alpn": ["h2"],
+          "fingerprint": "chrome"
+        },
+        "xhttpSettings": {
+          "host": "<b.vps.com>",
+          "path": "{{XHTTP_PATH}}",
+          "mode": "auto",
+          "extra": {
+            "downloadSettings": {
+              "address": "<vps_ip>",
+              "port": 443,
+              "network": "xhttp",
+              "security": "reality",
+              "realitySettings": {
+                "show": false,
+                "serverName": "<a.vps.com>",
+                "fingerprint": "chrome",
+                "publicKey": "{{REALITY_PBK}}",
+                "shortId": "{{REALITY_SID}}",
+                "spiderX": "/"
+              },
+              "xhttpSettings": {
+                "host": "<a.vps.com>",
+                "path": "{{XHTTP_PATH}}",
+                "mode": "auto"
+              }
+            }
+          }
+        },
+        "sockopt": {
+          "tcpFastOpen": true,
+          "tcpMptcp": true,
+          "tcpNoDelay": true
+        }
+      }
+    },
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "<cnd_ip> | <cdn_doamin>",
+            "port": 443,
+            "users": [
+              {
+                "id": "{{CLIENT_UUID}}",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "tag": "XHTTP + TLS + CDN",
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "<b.vps.com>",
+          "allowInsecure": false,
+          "alpn": ["h2"],
+          "fingerprint": "chrome"
+        },
+        "xhttpSettings": {
+          "host": "<b.vps.com>",
+          "path": "{{XHTTP_PATH}}",
+          "mode": "auto"
+        },
+        "sockopt": {
+          "tcpFastOpen": true,
+          "tcpMptcp": true,
+          "tcpNoDelay": true
+        }
+      }
+    },
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "<vps_ip>",
+            "port": 443,
+            "users": [
+              {
+                "id": "{{CLIENT_UUID}}",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "tag": "REALITY UP | CDN DOWN",
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "serverName": "<a.vps.com>",
+          "fingerprint": "chrome",
+          "publicKey": "{{REALITY_PBK}}",
+          "shortId": "{{REALITY_SID}}",
+          "spiderX": "/"
+        },
+        "xhttpSettings": {
+          "host": "<a.vps.com>",
+          "path": "{{XHTTP_PATH}}",
+          "mode": "auto",
+          "extra": {
+            "downloadSettings": {
+              "address": "<cnd_ip> | <cdn_doamin>",
+              "port": 443,
+              "network": "xhttp",
+              "security": "tls",
+              "tlsSettings": {
+                "serverName": "<b.vps.com>",
+                "allowInsecure": false,
+                "alpn": ["h2"],
+                "fingerprint": "chrome"
+              },
+              "xhttpSettings": {
+                "host": "<b.vps.com>",
+                "path": "{{XHTTP_PATH}}",
+                "mode": "auto"
+              }
+            }
+          }
+        },
+        "sockopt": {
+          "tcpFastOpen": true,
+          "tcpMptcp": true,
+          "tcpNoDelay": true
+        }
+      }
+    },
+    {
+      "tag": "proxy",
+      "protocol": "vless"
+    },
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blockhole",
+      "tag": "block"
+    }
+  ]
+}

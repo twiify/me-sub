@@ -2,6 +2,20 @@
   "log": {
     "loglevel": "warning"
   },
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "ip": ["geoip:cn"],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "domain": ["geosite:cn"],
+        "outboundTag": "block"
+      }
+    ]
+  },
   "inbounds": [
     {
       "listen": "0.0.0.0",
