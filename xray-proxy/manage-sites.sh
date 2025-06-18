@@ -5,7 +5,9 @@
 # --- 全局变量 ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 SITES_CONFIG_DIR="${SCRIPT_DIR}/nginx/sites"
+XRAY_CONFIG_FILE="${SCRIPT_DIR}/xray/xray_config.json"
 NGINX_CONTAINER_NAME="nginx"
+XRAY_CONTAINER_NAME="xray"
 NGINX_RELOAD_CMD="nginx -s reload"
 
 # --- 辅助函数 ---
@@ -21,18 +23,26 @@ check_dependencies() {
 }
 
 reload_services() {
-    read -p "是否立即重载 Nginx 服务? (yes/no): " RELOAD_CHOICE
+    read -p "是否立即重载 Nginx 和 Xray 服务? (yes/no): " RELOAD_CHOICE
     if [[ "$RELOAD_CHOICE" != "yes" && "$RELOAD_CHOICE" != "y" ]]; then
         log_message "操作已取消。请稍后手动重载服务以使更改生效。"
         return
     fi
 
     log_message "正在重载 Nginx..."
-    cd "$SCRIPT_DIR" && docker compose exec "$NGINX_CONTAINER_NAME" $NGINX_RELOAD_CMD
+    cd $SCRIPT_DIR && docker compose exec "$NGINX_CONTAINER_NAME" $NGINX_RELOAD_CMD
     if [ $? -eq 0 ]; then
         log_message "Nginx 重载成功。"
     else
         log_message "错误: Nginx 重载失败。请检查日志。"
+    fi
+
+    log_message "正在重载 Xray..."
+    cd $SCRIPT_DIR && docker compose restart "$XRAY_CONTAINER_NAME"
+    if [ $? -eq 0 ]; then
+        log_message "Xray 重载成功。"
+    else
+        log_message "错误: Xray 重载失败。请检查日志。"
     fi
 }
 
@@ -66,8 +76,7 @@ add_site() {
     # 创建 Nginx 配置文件
     cat > "$site_config_file" << EOF
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
+    listen unix:/dev/shm/nginx.sock ssl proxy_protocol;
     http2 on;
     server_name $SERVER_NAME;
 
@@ -96,6 +105,20 @@ server {
 EOF
     log_message "Nginx 配置文件已创建: $site_config_file"
     log_message "请确保 $SERVER_NAME 的 SSL 证书已通过 autossl.sh 签发。"
+
+    log_message "正在将 $SERVER_NAME 添加到 Xray 配置中..."
+    # 使用 jq 将新域名添加到 serverNames 数组
+    local temp_xray_config=$(mktemp)
+    jq "(.inbounds[0].streamSettings.realitySettings.serverNames += [\"$SERVER_NAME\"]) | .inbounds[0].streamSettings.realitySettings.serverNames |= unique" "$XRAY_CONFIG_FILE" > "$temp_xray_config"
+    
+    if [ $? -eq 0 ]; then
+        mv "$temp_xray_config" "$XRAY_CONFIG_FILE"
+        log_message "Xray 配置文件更新成功。"
+        reload_services
+    else
+        log_message "错误: 更新 Xray 配置文件失败。"
+        rm "$temp_xray_config"
+    fi
 }
 
 # 函数：删除站点
@@ -128,8 +151,21 @@ delete_site() {
         return
     fi
 
+    # 从 Xray 配置中移除域名
+    log_message "正在从 Xray 配置中移除 $domain_to_delete..."
+    local temp_xray_config=$(mktemp)
+    jq "(.inbounds[0].streamSettings.realitySettings.serverNames) |= map(select(. != \"$domain_to_delete\"))" "$XRAY_CONFIG_FILE" > "$temp_xray_config"
+
+    if [ $? -ne 0 ]; then
+        log_message "错误: 更新 Xray 配置文件失败。"
+        rm "$temp_xray_config"
+        return
+    fi
+    mv "$temp_xray_config" "$XRAY_CONFIG_FILE"
+    log_message "Xray 配置更新成功。"
+
     # 删除 Nginx 配置文件
-    rm -i -f "$file_to_delete"
+    rm -f "$file_to_delete"
     if [ $? -eq 0 ]; then
         log_message "Nginx 配置文件 '$file_to_delete' 已删除。"
         reload_services

@@ -1,0 +1,44 @@
+{
+  "dns_providers": {
+    "cloudflare": {
+      "name": "Cloudflare (Global API Key)",
+      "api_credentials": {
+        "CF_Key": "",
+        "CF_Email": ""
+      },
+      "acme_dns_api_name": "dns_cf"
+    },
+    "tencent_cloud": {
+      "name": "Tencent Cloud (DNSPod)",
+      "api_credentials": {
+        "TENCENTCLOUD_API_KEY": "",
+        "TENCENTCLOUD_API_SECRET": ""
+      },
+      "acme_dns_api_name": "dns_tencent"
+    },
+    "aliyun": {
+      "name": "Aliyun",
+      "api_credentials": {
+        "Ali_Key": "",
+        "Ali_Secret": ""
+      },
+      "acme_dns_api_name": "dns_ali"
+    }
+  },
+  "default_dns_provider": "cloudflare",
+  "certificate_authorities": {
+    "lets_encrypt": {
+      "name": "Let's Encrypt",
+      "server_name": "letsencrypt"
+    },
+    "zerossl": {
+      "name": "ZeroSSL",
+      "server_name": "zerossl"
+    }
+  },
+  "default_ca": "lets_encrypt",
+  "acme_sh_container_name": "acme.sh",
+  "nginx_container_name": "nginx",
+  "nginx_cert_path_in_container": "/etc/nginx/ssl",
+  "nginx_reload_command": "nginx -s reload"
+}

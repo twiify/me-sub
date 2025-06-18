@@ -154,7 +154,7 @@ delete_certificate() {
     fi
     log_message "准备删除域名 '$domain' 的证书..."
     run_acme_sh_command --remove -d "$domain"
-    log_message "删除acme目录下文件 ..."
+    log_message "删除acme.sh文件 ..."
     rm -r -i $(grep -l "^${domain}.*" ${DEFAULT_ACMEOUT_DIR})
 }
 

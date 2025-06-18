@@ -5,14 +5,13 @@ services:
     container_name: nginx
     environment:
       - TZ=Asia/Shanghai
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
+      - /dev/shm:/dev/shm
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/sites:/etc/nginx/conf.d
       - ./nginx/ssl:/etc/nginx/ssl
       - ./nginx/html:/etc/nginx/html
+      - ./xray/xray_generated_configs:/var/www/subs:ro
     labels:
       - sh.acme.autoload.domain=self-host
 
@@ -27,6 +26,17 @@ services:
       - ./acmeout:/acme.sh
       - ./nginx/ssl:/etc/nginx/ssl
       - /var/run/docker.sock:/var/run/docker.sock
+  
+  xray:
+    image: teddysun/xray:latest
+    container_name: xray
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    volumes:
+      - /dev/shm:/dev/shm
+      - ./xray/xray_config.json:/etc/xray/config.json
+      - ./nginx/ssl:/etc/xray/ssl
 
 networks:
   default:

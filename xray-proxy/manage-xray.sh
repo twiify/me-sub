@@ -52,11 +52,11 @@ reload_services() {
     fi
 
     log_message "正在重载 Nginx..."
-    docker exec "$NGINX_CONTAINER_NAME" nginx -s reload
+    cd $SCRIPT_DIR && docker compose exec "$NGINX_CONTAINER_NAME" nginx -s reload
     if [ $? -eq 0 ]; then log_message "Nginx 重载成功。"; else log_message "错误: Nginx 重载失败。"; fi
 
     log_message "正在重载 Xray..."
-    docker exec "$XRAY_CONTAINER_NAME" sh -c 'kill -SIGUSR1 $(pidof xray)'
+    cd $SCRIPT_DIR && docker compose restart "$XRAY_CONTAINER_NAME"
     if [ $? -eq 0 ]; then log_message "Xray 重载成功。"; else log_message "错误: Xray 重载失败。"; fi
 }
 
@@ -277,8 +277,14 @@ server {
         grpc_read_timeout        30m;
         grpc_send_timeout        30m;
         grpc_set_header Connection         "";
+
+        set \$client_ip \$proxy_add_x_forwarded_for;
+        if (\$client_ip = "") {
+            set \$client_ip \$remote_addr;
+        }
+
         grpc_set_header X-Real-IP          \$remote_addr;
-        grpc_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
+        grpc_set_header X-Forwarded-For    \$client_ip;
         grpc_set_header X-Forwarded-Proto  \$scheme;
         grpc_set_header X-Forwarded-Port   \$server_port;
         grpc_set_header Host               \$host;
@@ -302,8 +308,13 @@ server {
         proxy_ssl_server_name                 on;
 
         proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+
+        set \$client_ip \$proxy_protocol_addr;
+        if (\$client_ip = "") {
+            set \$client_ip \$remote_addr;
+        }
+        proxy_set_header X-Real-IP \$client_ip;
+        proxy_set_header X-Forwarded-For \$client_ip;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
