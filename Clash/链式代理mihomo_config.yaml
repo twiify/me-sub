@@ -1,0 +1,394 @@
+proxies:
+  - name: 落地代理
+    type: ss
+    server: <服务器IP>
+    port: <服务器端口>
+    cipher: aes-256-gcm
+    password: <密码>
+    udp: true
+    dialer-proxy: 机场选择
+proxy-providers:
+  前置机场:
+    type: http
+    url: >-
+      https://订阅链接
+    path: ./providers/FlyForward.yaml
+    interval: 3600
+    vehicle-type: http
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+mixed-port: 7893
+tcp-concurrent: true
+allow-lan: true
+ipv6: false
+log-level: info
+unified-delay: true
+global-client-fingerprint: chrome
+geodata-mode: true
+geox-url:
+  geoip: >-
+    https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat
+  geosite: >-
+    https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat
+  mmdb: >-
+    https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb
+  asn: >-
+    https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/GeoLite2-ASN.mmdb
+profile:
+  store-selected: true
+  store-fake-ip: false
+sniffer:
+  enable: true
+  sniff:
+    HTTP:
+      ports:
+        - 80
+      override-destination: true
+    TLS:
+      ports:
+        - 443
+        - 8443
+    QUIC:
+      ports:
+        - 443
+        - 8443
+tun:
+  enable: true
+  stack: mixed
+  dns-hijack:
+    - any:53
+    - any:853
+dns:
+  proxy: true
+  enable: true
+  ipv6: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - '*.lan'
+    - '*.srv.nintendo.net'
+    - '*.stun.playstation.net'
+    - xbox.*.microsoft.com
+    - '*.xboxlive.com'
+    - '*.teafone.com'
+    - '*.sktswe.net'
+    - rtc.goodfone.co.kr
+    - '*.chattti.com'
+  fallback-filter:
+    ipcidr:
+      - 0.0.0.0/8
+      - 10.0.0.0/8
+      - 100.64.0.0/10
+      - 127.0.0.0/8
+      - 169.254.0.0/16
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+      - 224.0.0.0/4
+      - 240.0.0.0/4
+      - 255.255.255.255/32
+      - '::/128'
+      - '::1/128'
+      - '::ffff:0:0/96'
+      - 64:ff9b::/96
+      - 100::/64
+      - 2001::/32
+      - 2001:20::/28
+      - 2001:db8::/32
+      - 2002::/16
+      - fc00::/7
+      - fe80::/10
+      - ff00::/8
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  proxy-server-nameserver:
+    - https://doh.pub/dns-query
+    - tls://119.29.29.29:853
+  nameserver:
+    - https://dns.google/dns-query#proxy
+    - tls://8.8.8.8:853#proxy
+  nameserver-policy:
+    geosite:cn:
+      - https://223.5.5.5/dns-query      - tls://223.5.5.5:853
+      - https://doh.pub/dns-query
+      - tls://119.29.29.29:853
+      - tls://114.114.114.114:853
+      - tls://dot.360.cn:853
+      - https://doh.360.cn/dns-query
+c:
+  type: http
+  behavior: classical
+  format: text
+  interval: 86400
+proxy-groups:
+  - name: 机场选择
+    type: select
+    proxies:
+      - WestData
+    icon: https://raw.githubusercontent.com/cc63/ICON/main/icons/Linkeless.png
+  - name: 落地选择
+    type: select
+    proxies:
+      - bage-ss
+    icon: >-
+      https://github.com/shindgewongxj/WHATSINStash/raw/main/icon/applesafari.png
+  - name: 国外网站
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Global.png
+  - name: 国际媒体
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/YouTube.png
+  - name: 苹果服务
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple_1.png
+  - name: 微软服务
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png
+  - name: 谷歌服务
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google_Search.png
+  - name: 电报消息
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Telegram.png
+  - name: 推特消息
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Twitter.png
+  - name: AI
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: https://raw.githubusercontent.com/Orz-3/mini/master/Color/OpenAI.png
+  - name: 游戏平台
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Game.png
+  - name: Emby
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Emby.png
+  - name: Spotify
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png
+  - name: 兜底分流
+    type: select
+    proxies:
+      - 落地选择
+      - 机场选择
+      - DIRECT
+      - bage-ss
+    icon: >-
+      https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Final.png
+  - name: WestData
+    type: select
+    use:
+      - WestData
+rule-providers:
+  AD:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/AD.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Reject.list
+  Apple:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Apple.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Apple.list
+  YouTube:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/YouTube.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/YouTube.list
+  Google:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Google.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Google.list
+  Telegram:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Telegram.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Telegram.list
+  Twitter:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Twitter.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Twitter.list
+  Steam:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Steam.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Steam.list
+  Epic:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Epic.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Epic.list
+  AI:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/AI.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/AI.list
+  Emby:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Emby.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Emby.list
+  Spotify:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Spotify.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Spotify.list
+  Bahamut:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Bahamut.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Bahamut.list
+  Netflix:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Netflix.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Netflix.list
+  Disney:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/Disney.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/Disney.list
+  PrimeVideo:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/PrimeVideo.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/PrimeVideo.list
+  HBO:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/HBO.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/HBO.list
+  TikTok:
+    type: http
+    behavior: classical
+    format: text
+    interval: 86400
+    path: ./rules/TikTok.list
+    url: https://github.com/Repcz/Tool/raw/X/Clash/Rules/TikTok.list
+rules:
+  - RULE-SET,AD,REJECT
+  - RULE-SET,AI,AI
+  - RULE-SET,Apple,苹果服务
+  - RULE-SET,YouTube,谷歌服务
+  - RULE-SET,Google,谷歌服务
+  - RULE-SET,Telegram,电报消息
+  - RULE-SET,Twitter,推特消息
+  - RULE-SET,Steam,游戏平台
+  - RULE-SET,Epic,游戏平台
+  - RULE-SET,Emby,Emby
+  - RULE-SET,Spotify,Spotify
+  - RULE-SET,Bahamut,国际媒体
+  - RULE-SET,Netflix,国际媒体
+  - RULE-SET,Disney,国际媒体
+  - RULE-SET,PrimeVideo,国际媒体
+  - RULE-SET,HBO,国际媒体
+  - RULE-SET,TikTok,国际媒体
+  - GEOSITE,onedrive,微软服务
+  - GEOSITE,github,微软服务
+  - GEOSITE,microsoft,微软服务
+  - GEOSITE,gfw,国外网站
+  - GEOIP,private,DIRECT
+  - GEOIP,cn,DIRECT
+  - GEOSITE,cn,DIRECT
+  - MATCH,兜底分流
